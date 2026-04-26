@@ -14,7 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      carousels: {
+        Row: {
+          copy_json: Json | null
+          created_at: string
+          format_chosen: string | null
+          id: string
+          idea: string | null
+          images_json: Json | null
+          objective: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          copy_json?: Json | null
+          created_at?: string
+          format_chosen?: string | null
+          id?: string
+          idea?: string | null
+          images_json?: Json | null
+          objective?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          copy_json?: Json | null
+          created_at?: string
+          format_chosen?: string | null
+          id?: string
+          idea?: string | null
+          images_json?: Json | null
+          objective?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      onboarding_responses: {
+        Row: {
+          additional_notes: string | null
+          created_at: string
+          id: string
+          product_positioning: string | null
+          target_audience: string | null
+          tone_of_voice: string | null
+          user_id: string
+          visual_style: string | null
+        }
+        Insert: {
+          additional_notes?: string | null
+          created_at?: string
+          id?: string
+          product_positioning?: string | null
+          target_audience?: string | null
+          tone_of_voice?: string | null
+          user_id: string
+          visual_style?: string | null
+        }
+        Update: {
+          additional_notes?: string | null
+          created_at?: string
+          id?: string
+          product_positioning?: string | null
+          target_audience?: string | null
+          tone_of_voice?: string | null
+          user_id?: string
+          visual_style?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          credits_remaining: number
+          email: string | null
+          id: string
+          name: string | null
+          onboarding_complete: boolean
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credits_remaining?: number
+          email?: string | null
+          id: string
+          name?: string | null
+          onboarding_complete?: boolean
+          plan?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credits_remaining?: number
+          email?: string | null
+          id?: string
+          name?: string | null
+          onboarding_complete?: boolean
+          plan?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
