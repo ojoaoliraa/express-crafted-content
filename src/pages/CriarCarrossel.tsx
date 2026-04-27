@@ -1,17 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Sparkles, Lightbulb, Loader2, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Lightbulb, Loader2, Check, Wand2, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { rankFormats, type FormatMatch, type CarouselFormat } from "@/lib/formats";
+import { useAuth } from "@/hooks/useAuth";
 
 const TOTAL_STEPS = 5;
 
@@ -68,6 +80,38 @@ const CriarCarrossel = () => {
     nada: false,
   });
   const [sauceDetails, setSauceDetails] = useState<Record<string, string>>({});
+
+  // Step 4 — formatos sugeridos
+  const [matches, setMatches] = useState<FormatMatch[]>([]);
+  const [chosenFormat, setChosenFormat] = useState<CarouselFormat | null>(null);
+
+  // Step 5 — copy
+  const { user } = useAuth();
+  const [generating, setGenerating] = useState(false);
+  const [slides, setSlides] = useState<
+    { index: number; title: string; body: string; kind: string }[]
+  >([]);
+  const [caption, setCaption] = useState("");
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+
+  // Carrega créditos atuais quando entra na etapa 5
+  useEffect(() => {
+    if (step !== 5 || !user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("credits_remaining")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled && data) setCredits(data.credits_remaining);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, user, generating]);
+
 
   const progress = (step / TOTAL_STEPS) * 100;
 
@@ -132,12 +176,121 @@ const CriarCarrossel = () => {
   };
 
   const handleAskFormats = () => {
-    // Próxima parte do fluxo: etapa 4 — formatos
-    toast({
-      title: "Próximo passo em construção",
-      description: "A apresentação dos 3+1 formatos chega na próxima etapa.",
+    const activeSauces = (Object.keys(sauces) as SauceKey[]).filter(
+      (k) => sauces[k] && k !== "nada",
+    );
+    const ranked = rankFormats({
+      objective,
+      productType: "any",
+      needsAuthority: objective === "autoridade" || objective === "valor_percebido",
+      tone: "any",
+      resources: activeSauces,
     });
+    setMatches(ranked);
+    setChosenFormat(null);
     setStep(4);
+  };
+
+  const generateCopy = async (isRegeneration = false) => {
+    if (!chosenFormat) return;
+    setGenerating(true);
+    try {
+      const sauceList = (Object.keys(sauces) as SauceKey[])
+        .filter((k) => sauces[k])
+        .map((k) => ({ key: k, detail: sauceDetails[k] }));
+
+      const { data, error } = await supabase.functions.invoke("generate-copy", {
+        body: {
+          idea: finalIdea,
+          objective,
+          sauces: sauceList,
+          format: {
+            id: chosenFormat.id,
+            name: chosenFormat.name,
+            anchor_phrase: chosenFormat.anchor_phrase,
+            short_description: chosenFormat.short_description,
+            slide_count: chosenFormat.slide_count,
+          },
+          isRegeneration,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setSlides(data.slides ?? []);
+      setCaption(data.caption ?? "");
+    } catch (err: any) {
+      console.error(err);
+      const msg = err?.message ?? "Não consegui gerar a copy agora.";
+      toast({
+        title: "Deu ruim na geração",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleChooseFormat = async (f: CarouselFormat) => {
+    setChosenFormat(f);
+    setSlides([]);
+    setCaption("");
+    setStep(5);
+    // Dispara geração inicial logo em seguida
+    setTimeout(() => generateCopyFor(f, false), 0);
+  };
+
+  // Wrapper que recebe o formato direto (evita race do setState)
+  const generateCopyFor = async (format: CarouselFormat, isRegeneration: boolean) => {
+    setGenerating(true);
+    try {
+      const sauceList = (Object.keys(sauces) as SauceKey[])
+        .filter((k) => sauces[k])
+        .map((k) => ({ key: k, detail: sauceDetails[k] }));
+
+      const { data, error } = await supabase.functions.invoke("generate-copy", {
+        body: {
+          idea: finalIdea,
+          objective,
+          sauces: sauceList,
+          format: {
+            id: format.id,
+            name: format.name,
+            anchor_phrase: format.anchor_phrase,
+            short_description: format.short_description,
+            slide_count: format.slide_count,
+          },
+          isRegeneration,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setSlides(data.slides ?? []);
+      setCaption(data.caption ?? "");
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Deu ruim na geração",
+        description: err?.message ?? "Tenta de novo em instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleRegenerate = () => setConfirmRegenerate(true);
+  const confirmAndRegenerate = async () => {
+    setConfirmRegenerate(false);
+    if (chosenFormat) await generateCopyFor(chosenFormat, true);
+  };
+
+  const handleApprove = () => {
+    toast({
+      title: "Copy aprovada",
+      description: "Próxima parte do fluxo cuida das imagens.",
+    });
   };
 
   return (
@@ -181,21 +334,27 @@ const CriarCarrossel = () => {
           )}
 
           {step === 4 && (
-            <div className="text-center py-12 space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="font-display text-2xl">Os formatos chegam aqui</h2>
-              <p className="text-muted-foreground text-sm">
-                Próxima parte do fluxo — apresentação dos 3+1 formatos.
-              </p>
-            </div>
+            <Step4 matches={matches} onChoose={handleChooseFormat} />
+          )}
+
+          {step === 5 && (
+            <Step5
+              format={chosenFormat}
+              generating={generating}
+              slides={slides}
+              setSlides={setSlides}
+              caption={caption}
+              setCaption={setCaption}
+              credits={credits}
+              onApprove={handleApprove}
+              onRegenerate={handleRegenerate}
+            />
           )}
         </div>
 
         {/* Footer nav */}
         <div className="mt-10 flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={handleBack}>
+          <Button variant="ghost" onClick={handleBack} disabled={generating}>
             <ArrowLeft className="h-4 w-4" />
             {step === 1 ? "Cancelar" : "Voltar"}
           </Button>
@@ -217,6 +376,23 @@ const CriarCarrossel = () => {
           )}
         </div>
       </div>
+
+      <AlertDialog open={confirmRegenerate} onOpenChange={setConfirmRegenerate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerar gasta 1 crédito</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que quer pedir uma nova versão? O CAIC vai descartar a copy atual.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAndRegenerate}>
+              Sim, regenerar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
@@ -463,3 +639,186 @@ const Step3 = ({
 );
 
 export default CriarCarrossel;
+
+/* ---------------- Step 4 — Formatos ---------------- */
+
+const Step4 = ({
+  matches,
+  onChoose,
+}: {
+  matches: FormatMatch[];
+  onChoose: (f: CarouselFormat) => void;
+}) => (
+  <div className="space-y-6">
+    <header className="space-y-2">
+      <p className="text-sm text-primary font-medium">CAIC sugere</p>
+      <h1 className="font-display text-3xl md:text-4xl tracking-tight">
+        Os 3 formatos com mais fit + 1 coringa
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        Escolhe o que mais te chama. Dá pra trocar se não rolar.
+      </p>
+    </header>
+
+    <div className="grid gap-3 sm:grid-cols-2">
+      {matches.map((m) => (
+        <div
+          key={m.format.id}
+          className={cn(
+            "rounded-xl border p-5 bg-card flex flex-col gap-3 transition-smooth hover:shadow-soft",
+            m.isWildcard ? "border-accent-foreground/30" : "border-border",
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-display text-lg leading-tight">{m.format.name}</h3>
+            {m.isWildcard && (
+              <Badge variant="secondary" className="bg-accent text-accent-foreground border-0">
+                Coringa
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm italic text-foreground/80 border-l-2 border-primary/40 pl-3">
+            "{m.format.anchor_phrase}"
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{m.reason}</p>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>{m.format.slide_count} slides</span>
+            <span>•</span>
+            <span className="capitalize">{m.format.complexity}</span>
+          </div>
+          <Button onClick={() => onChoose(m.format)} className="mt-1" size="sm">
+            Escolher este
+          </Button>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+/* ---------------- Step 5 — Geração de copy ---------------- */
+
+interface SlideRow {
+  index: number;
+  title: string;
+  body: string;
+  kind: string;
+}
+
+const Step5 = ({
+  format,
+  generating,
+  slides,
+  setSlides,
+  caption,
+  setCaption,
+  credits,
+  onApprove,
+  onRegenerate,
+}: {
+  format: CarouselFormat | null;
+  generating: boolean;
+  slides: SlideRow[];
+  setSlides: (s: SlideRow[]) => void;
+  caption: string;
+  setCaption: (s: string) => void;
+  credits: number | null;
+  onApprove: () => void;
+  onRegenerate: () => void;
+}) => {
+  const updateSlide = (index: number, patch: Partial<SlideRow>) => {
+    setSlides(slides.map((s) => (s.index === index ? { ...s, ...patch } : s)));
+  };
+
+  if (generating) {
+    return (
+      <div className="text-center py-16 space-y-5">
+        <div className="mx-auto relative h-16 w-16">
+          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+          <div className="relative h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Wand2 className="h-7 w-7 text-primary animate-pulse" />
+          </div>
+        </div>
+        <h2 className="font-display text-2xl">Boa escolha.</h2>
+        <p className="text-muted-foreground max-w-sm mx-auto">
+          Tô gerando uma copy que gera conexão… isso leva uns 20 segundos.
+        </p>
+      </div>
+    );
+  }
+
+  if (!slides.length) {
+    return (
+      <div className="text-center py-12 text-muted-foreground text-sm">
+        Aguardando o CAIC…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="space-y-1">
+          <p className="text-sm text-primary font-medium">CAIC entregou</p>
+          <h1 className="font-display text-2xl md:text-3xl tracking-tight">
+            Sua copy no formato {format?.name}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Edita à vontade — clica no texto pra ajustar.
+          </p>
+        </div>
+        {credits !== null && (
+          <Badge variant="outline" className="gap-1.5">
+            <Sparkles className="h-3 w-3 text-primary" />
+            {credits} {credits === 1 ? "crédito" : "créditos"}
+          </Badge>
+        )}
+      </header>
+
+      <div className="space-y-3">
+        {slides.map((s) => (
+          <div
+            key={s.index}
+            className="rounded-xl border border-border bg-card p-4 space-y-2"
+          >
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-mono">Slide {s.index}</span>
+              <span>•</span>
+              <span className="capitalize">
+                {s.kind === "cover" ? "capa" : s.kind === "cta" ? "CTA" : "conteúdo"}
+              </span>
+            </div>
+            <input
+              value={s.title}
+              onChange={(e) => updateSlide(s.index, { title: e.target.value })}
+              className="w-full bg-transparent font-display text-lg leading-tight focus:outline-none focus:ring-0 border-0 p-0"
+            />
+            <Textarea
+              value={s.body}
+              onChange={(e) => updateSlide(s.index, { body: e.target.value })}
+              className="min-h-20 text-sm border-dashed"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+        <div className="text-xs text-muted-foreground font-medium">Legenda</div>
+        <Textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          className="min-h-24 text-sm"
+        />
+      </div>
+
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+        <Button variant="outline" onClick={onRegenerate} disabled={(credits ?? 0) < 1}>
+          <RefreshCw className="h-4 w-4" />
+          Regenerar (1 crédito)
+        </Button>
+        <Button onClick={onApprove} size="lg">
+          Está bom, seguir <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
