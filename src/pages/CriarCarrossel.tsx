@@ -334,21 +334,27 @@ const CriarCarrossel = () => {
           )}
 
           {step === 4 && (
-            <div className="text-center py-12 space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="font-display text-2xl">Os formatos chegam aqui</h2>
-              <p className="text-muted-foreground text-sm">
-                Próxima parte do fluxo — apresentação dos 3+1 formatos.
-              </p>
-            </div>
+            <Step4 matches={matches} onChoose={handleChooseFormat} />
+          )}
+
+          {step === 5 && (
+            <Step5
+              format={chosenFormat}
+              generating={generating}
+              slides={slides}
+              setSlides={setSlides}
+              caption={caption}
+              setCaption={setCaption}
+              credits={credits}
+              onApprove={handleApprove}
+              onRegenerate={handleRegenerate}
+            />
           )}
         </div>
 
         {/* Footer nav */}
         <div className="mt-10 flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={handleBack}>
+          <Button variant="ghost" onClick={handleBack} disabled={generating}>
             <ArrowLeft className="h-4 w-4" />
             {step === 1 ? "Cancelar" : "Voltar"}
           </Button>
@@ -370,6 +376,23 @@ const CriarCarrossel = () => {
           )}
         </div>
       </div>
+
+      <AlertDialog open={confirmRegenerate} onOpenChange={setConfirmRegenerate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerar gasta 1 crédito</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que quer pedir uma nova versão? O CAIC vai descartar a copy atual.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAndRegenerate}>
+              Sim, regenerar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
