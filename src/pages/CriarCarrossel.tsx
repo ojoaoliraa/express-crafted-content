@@ -176,12 +176,121 @@ const CriarCarrossel = () => {
   };
 
   const handleAskFormats = () => {
-    // Próxima parte do fluxo: etapa 4 — formatos
-    toast({
-      title: "Próximo passo em construção",
-      description: "A apresentação dos 3+1 formatos chega na próxima etapa.",
+    const activeSauces = (Object.keys(sauces) as SauceKey[]).filter(
+      (k) => sauces[k] && k !== "nada",
+    );
+    const ranked = rankFormats({
+      objective,
+      productType: "any",
+      needsAuthority: objective === "autoridade" || objective === "valor_percebido",
+      tone: "any",
+      resources: activeSauces,
     });
+    setMatches(ranked);
+    setChosenFormat(null);
     setStep(4);
+  };
+
+  const generateCopy = async (isRegeneration = false) => {
+    if (!chosenFormat) return;
+    setGenerating(true);
+    try {
+      const sauceList = (Object.keys(sauces) as SauceKey[])
+        .filter((k) => sauces[k])
+        .map((k) => ({ key: k, detail: sauceDetails[k] }));
+
+      const { data, error } = await supabase.functions.invoke("generate-copy", {
+        body: {
+          idea: finalIdea,
+          objective,
+          sauces: sauceList,
+          format: {
+            id: chosenFormat.id,
+            name: chosenFormat.name,
+            anchor_phrase: chosenFormat.anchor_phrase,
+            short_description: chosenFormat.short_description,
+            slide_count: chosenFormat.slide_count,
+          },
+          isRegeneration,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setSlides(data.slides ?? []);
+      setCaption(data.caption ?? "");
+    } catch (err: any) {
+      console.error(err);
+      const msg = err?.message ?? "Não consegui gerar a copy agora.";
+      toast({
+        title: "Deu ruim na geração",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleChooseFormat = async (f: CarouselFormat) => {
+    setChosenFormat(f);
+    setSlides([]);
+    setCaption("");
+    setStep(5);
+    // Dispara geração inicial logo em seguida
+    setTimeout(() => generateCopyFor(f, false), 0);
+  };
+
+  // Wrapper que recebe o formato direto (evita race do setState)
+  const generateCopyFor = async (format: CarouselFormat, isRegeneration: boolean) => {
+    setGenerating(true);
+    try {
+      const sauceList = (Object.keys(sauces) as SauceKey[])
+        .filter((k) => sauces[k])
+        .map((k) => ({ key: k, detail: sauceDetails[k] }));
+
+      const { data, error } = await supabase.functions.invoke("generate-copy", {
+        body: {
+          idea: finalIdea,
+          objective,
+          sauces: sauceList,
+          format: {
+            id: format.id,
+            name: format.name,
+            anchor_phrase: format.anchor_phrase,
+            short_description: format.short_description,
+            slide_count: format.slide_count,
+          },
+          isRegeneration,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setSlides(data.slides ?? []);
+      setCaption(data.caption ?? "");
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Deu ruim na geração",
+        description: err?.message ?? "Tenta de novo em instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleRegenerate = () => setConfirmRegenerate(true);
+  const confirmAndRegenerate = async () => {
+    setConfirmRegenerate(false);
+    if (chosenFormat) await generateCopyFor(chosenFormat, true);
+  };
+
+  const handleApprove = () => {
+    toast({
+      title: "Copy aprovada",
+      description: "Próxima parte do fluxo cuida das imagens.",
+    });
   };
 
   return (
