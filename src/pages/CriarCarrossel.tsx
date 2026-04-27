@@ -81,6 +81,38 @@ const CriarCarrossel = () => {
   });
   const [sauceDetails, setSauceDetails] = useState<Record<string, string>>({});
 
+  // Step 4 — formatos sugeridos
+  const [matches, setMatches] = useState<FormatMatch[]>([]);
+  const [chosenFormat, setChosenFormat] = useState<CarouselFormat | null>(null);
+
+  // Step 5 — copy
+  const { user } = useAuth();
+  const [generating, setGenerating] = useState(false);
+  const [slides, setSlides] = useState<
+    { index: number; title: string; body: string; kind: string }[]
+  >([]);
+  const [caption, setCaption] = useState("");
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+
+  // Carrega créditos atuais quando entra na etapa 5
+  useEffect(() => {
+    if (step !== 5 || !user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("credits_remaining")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled && data) setCredits(data.credits_remaining);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, user, generating]);
+
+
   const progress = (step / TOTAL_STEPS) * 100;
 
   const finalIdea = ideaMode === "own" ? ideaText.trim() : selectedSuggestion ?? "";
