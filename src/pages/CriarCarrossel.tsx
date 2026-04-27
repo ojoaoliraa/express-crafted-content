@@ -639,3 +639,186 @@ const Step3 = ({
 );
 
 export default CriarCarrossel;
+
+/* ---------------- Step 4 — Formatos ---------------- */
+
+const Step4 = ({
+  matches,
+  onChoose,
+}: {
+  matches: FormatMatch[];
+  onChoose: (f: CarouselFormat) => void;
+}) => (
+  <div className="space-y-6">
+    <header className="space-y-2">
+      <p className="text-sm text-primary font-medium">CAIC sugere</p>
+      <h1 className="font-display text-3xl md:text-4xl tracking-tight">
+        Os 3 formatos com mais fit + 1 coringa
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        Escolhe o que mais te chama. Dá pra trocar se não rolar.
+      </p>
+    </header>
+
+    <div className="grid gap-3 sm:grid-cols-2">
+      {matches.map((m) => (
+        <div
+          key={m.format.id}
+          className={cn(
+            "rounded-xl border p-5 bg-card flex flex-col gap-3 transition-smooth hover:shadow-soft",
+            m.isWildcard ? "border-accent-foreground/30" : "border-border",
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-display text-lg leading-tight">{m.format.name}</h3>
+            {m.isWildcard && (
+              <Badge variant="secondary" className="bg-accent text-accent-foreground border-0">
+                Coringa
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm italic text-foreground/80 border-l-2 border-primary/40 pl-3">
+            "{m.format.anchor_phrase}"
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{m.reason}</p>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>{m.format.slide_count} slides</span>
+            <span>•</span>
+            <span className="capitalize">{m.format.complexity}</span>
+          </div>
+          <Button onClick={() => onChoose(m.format)} className="mt-1" size="sm">
+            Escolher este
+          </Button>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+/* ---------------- Step 5 — Geração de copy ---------------- */
+
+interface SlideRow {
+  index: number;
+  title: string;
+  body: string;
+  kind: string;
+}
+
+const Step5 = ({
+  format,
+  generating,
+  slides,
+  setSlides,
+  caption,
+  setCaption,
+  credits,
+  onApprove,
+  onRegenerate,
+}: {
+  format: CarouselFormat | null;
+  generating: boolean;
+  slides: SlideRow[];
+  setSlides: (s: SlideRow[]) => void;
+  caption: string;
+  setCaption: (s: string) => void;
+  credits: number | null;
+  onApprove: () => void;
+  onRegenerate: () => void;
+}) => {
+  const updateSlide = (index: number, patch: Partial<SlideRow>) => {
+    setSlides(slides.map((s) => (s.index === index ? { ...s, ...patch } : s)));
+  };
+
+  if (generating) {
+    return (
+      <div className="text-center py-16 space-y-5">
+        <div className="mx-auto relative h-16 w-16">
+          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+          <div className="relative h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Wand2 className="h-7 w-7 text-primary animate-pulse" />
+          </div>
+        </div>
+        <h2 className="font-display text-2xl">Boa escolha.</h2>
+        <p className="text-muted-foreground max-w-sm mx-auto">
+          Tô gerando uma copy que gera conexão… isso leva uns 20 segundos.
+        </p>
+      </div>
+    );
+  }
+
+  if (!slides.length) {
+    return (
+      <div className="text-center py-12 text-muted-foreground text-sm">
+        Aguardando o CAIC…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <header className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="space-y-1">
+          <p className="text-sm text-primary font-medium">CAIC entregou</p>
+          <h1 className="font-display text-2xl md:text-3xl tracking-tight">
+            Sua copy no formato {format?.name}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Edita à vontade — clica no texto pra ajustar.
+          </p>
+        </div>
+        {credits !== null && (
+          <Badge variant="outline" className="gap-1.5">
+            <Sparkles className="h-3 w-3 text-primary" />
+            {credits} {credits === 1 ? "crédito" : "créditos"}
+          </Badge>
+        )}
+      </header>
+
+      <div className="space-y-3">
+        {slides.map((s) => (
+          <div
+            key={s.index}
+            className="rounded-xl border border-border bg-card p-4 space-y-2"
+          >
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-mono">Slide {s.index}</span>
+              <span>•</span>
+              <span className="capitalize">
+                {s.kind === "cover" ? "capa" : s.kind === "cta" ? "CTA" : "conteúdo"}
+              </span>
+            </div>
+            <input
+              value={s.title}
+              onChange={(e) => updateSlide(s.index, { title: e.target.value })}
+              className="w-full bg-transparent font-display text-lg leading-tight focus:outline-none focus:ring-0 border-0 p-0"
+            />
+            <Textarea
+              value={s.body}
+              onChange={(e) => updateSlide(s.index, { body: e.target.value })}
+              className="min-h-20 text-sm border-dashed"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+        <div className="text-xs text-muted-foreground font-medium">Legenda</div>
+        <Textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          className="min-h-24 text-sm"
+        />
+      </div>
+
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+        <Button variant="outline" onClick={onRegenerate} disabled={(credits ?? 0) < 1}>
+          <RefreshCw className="h-4 w-4" />
+          Regenerar (1 crédito)
+        </Button>
+        <Button onClick={onApprove} size="lg">
+          Está bom, seguir <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
