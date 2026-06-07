@@ -1122,3 +1122,347 @@ const Step5 = ({
     </div>
   );
 };
+
+/* ---------------- Step 6 — Imagens ---------------- */
+
+interface Step6Props {
+  slides: { index: number; title: string; body: string; kind: string }[];
+  imageMode: ImageMode;
+  setImageMode: (m: ImageMode) => void;
+  slideImages: Record<number, SlideImage>;
+  assignUpload: (index: number, file: File) => void;
+  assignStock: (index: number, img: StockImage) => void;
+  removeImage: (index: number) => void;
+  stockImages: StockImage[];
+  loadingStock: boolean;
+  stockQuery: string;
+  setStockQuery: (s: string) => void;
+  fetchStock: (override?: string) => void;
+  pickingForSlide: number | null;
+  setPickingForSlide: (n: number | null) => void;
+}
+
+const Step6 = ({
+  slides,
+  imageMode,
+  setImageMode,
+  slideImages,
+  assignUpload,
+  assignStock,
+  removeImage,
+  stockImages,
+  loadingStock,
+  stockQuery,
+  setStockQuery,
+  fetchStock,
+  pickingForSlide,
+  setPickingForSlide,
+}: Step6Props) => {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <p className="text-sm text-primary font-medium">CAIC pergunta</p>
+        <h1 className="font-display text-3xl md:text-4xl tracking-tight">
+          Cadê as imagens?
+        </h1>
+      </header>
+
+      {imageMode === null && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { k: "upload" as const, icon: Upload, t: "Vou subir as minhas", s: "Arrasta e solta os arquivos." },
+            { k: "stock" as const, icon: ImageIcon, t: "Usa fotos aesthetic", s: "Eu busco no Unsplash + Pexels." },
+            { k: "mix" as const, icon: Shuffle, t: "Mistura", s: "Subo algumas, você acha o resto." },
+          ].map(({ k, icon: Icon, t, s }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => {
+                setImageMode(k);
+                if (k === "stock" || k === "mix") fetchStock();
+              }}
+              className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-soft transition-smooth"
+            >
+              <Icon className="h-5 w-5 text-primary mb-3" />
+              <p className="font-display text-lg leading-snug mb-1">{t}</p>
+              <p className="text-sm text-muted-foreground">{s}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {imageMode !== null && (
+        <>
+          <button
+            type="button"
+            onClick={() => setImageMode(null)}
+            className="text-xs text-muted-foreground hover:text-foreground transition-smooth"
+          >
+            ← trocar de modo
+          </button>
+
+          {/* Slots por slide */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {slides.map((s) => {
+              const img = slideImages[s.index];
+              return (
+                <div
+                  key={s.index}
+                  className="rounded-xl border border-border bg-card p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-mono">Slide {s.index}</span>
+                    {img && (
+                      <button
+                        type="button"
+                        onClick={() => removeImage(s.index)}
+                        className="hover:text-foreground transition-smooth"
+                        aria-label="Remover"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="aspect-square rounded-lg overflow-hidden bg-muted relative">
+                    {img ? (
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                        sem imagem
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {(imageMode === "upload" || imageMode === "mix") && (
+                      <label className="flex-1 cursor-pointer text-xs rounded-md border border-border px-2 py-1.5 text-center hover:border-primary transition-smooth">
+                        <Upload className="h-3 w-3 inline mr-1" />
+                        Subir
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) assignUpload(s.index, f);
+                          }}
+                        />
+                      </label>
+                    )}
+                    {(imageMode === "stock" || imageMode === "mix") && (
+                      <button
+                        type="button"
+                        onClick={() => setPickingForSlide(s.index)}
+                        className="flex-1 text-xs rounded-md border border-border px-2 py-1.5 hover:border-primary transition-smooth"
+                      >
+                        <ImageIcon className="h-3 w-3 inline mr-1" />
+                        Stock
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Stock picker */}
+          {(imageMode === "stock" || imageMode === "mix") && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  value={stockQuery}
+                  onChange={(e) => setStockQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchStock(stockQuery)}
+                  placeholder="buscar palavras (ex: minimal desk, sunset)"
+                  className="flex-1 bg-transparent border-b border-border px-1 py-1 text-sm focus:outline-none focus:border-primary"
+                />
+                <Button size="sm" variant="outline" onClick={() => fetchStock(stockQuery)}>
+                  Buscar
+                </Button>
+              </div>
+              {pickingForSlide !== null && (
+                <p className="text-xs text-primary">
+                  Escolhendo pra slide {pickingForSlide} — clica numa foto.
+                </p>
+              )}
+
+              {loadingStock ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">CAIC garimpando…</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {stockImages.map((img) => (
+                    <button
+                      key={img.id}
+                      type="button"
+                      onClick={() => {
+                        if (pickingForSlide !== null) assignStock(pickingForSlide, img);
+                        else {
+                          // auto-atribui pro primeiro slide sem imagem
+                          const empty = slides.find((s) => !slideImages[s.index]);
+                          if (empty) assignStock(empty.index, img);
+                        }
+                      }}
+                      className="group aspect-square rounded-lg overflow-hidden border border-border hover:border-primary transition-smooth relative"
+                    >
+                      <img src={img.thumb} alt={img.credit} className="w-full h-full object-cover" />
+                      <span className="absolute bottom-0 inset-x-0 bg-foreground/70 text-background text-[9px] px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity truncate">
+                        {img.credit}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+/* ---------------- Step 7 — Render preview ---------------- */
+
+const Step7 = ({
+  rendering,
+  renderedPreviews,
+  previewSlide,
+  setPreviewSlide,
+  credits,
+  onConfirm,
+  onAdjust,
+}: {
+  rendering: boolean;
+  renderedPreviews: { index: number; dataUrl: string }[];
+  previewSlide: number;
+  setPreviewSlide: (n: number) => void;
+  credits: number | null;
+  onConfirm: () => void;
+  onAdjust: () => void;
+}) => {
+  if (rendering) {
+    return (
+      <div className="text-center py-16 space-y-5">
+        <div className="mx-auto relative h-16 w-16">
+          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+          <div className="relative h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Wand2 className="h-7 w-7 text-primary animate-pulse" />
+          </div>
+        </div>
+        <h2 className="font-display text-2xl">Tô montando seu carrossel com molho…</h2>
+        <p className="text-muted-foreground max-w-sm mx-auto">
+          Renderizando os PNGs em 1080×1080. Demora uns segundos.
+        </p>
+      </div>
+    );
+  }
+
+  if (!renderedPreviews.length) {
+    return <div className="text-center py-12 text-muted-foreground text-sm">Sem preview ainda.</div>;
+  }
+
+  const current = renderedPreviews[previewSlide];
+  return (
+    <div className="space-y-5">
+      <header className="space-y-2">
+        <p className="text-sm text-primary font-medium">CAIC entregou</p>
+        <h1 className="font-display text-3xl md:text-4xl tracking-tight">
+          Tá no jeito. Confere se ficou redondo.
+        </h1>
+      </header>
+
+      <div className="rounded-2xl overflow-hidden border border-border bg-card">
+        <img src={current.dataUrl} alt={`slide ${current.index}`} className="w-full h-auto block" />
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setPreviewSlide(Math.max(0, previewSlide - 1))}
+          disabled={previewSlide === 0}
+        >
+          <ArrowLeft className="h-4 w-4" /> Anterior
+        </Button>
+        <span className="text-xs text-muted-foreground font-mono">
+          {previewSlide + 1} / {renderedPreviews.length}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setPreviewSlide(Math.min(renderedPreviews.length - 1, previewSlide + 1))}
+          disabled={previewSlide === renderedPreviews.length - 1}
+        >
+          Próximo <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
+        <Button variant="outline" onClick={onAdjust} disabled={(credits ?? 0) < 1}>
+          <RefreshCw className="h-4 w-4" />
+          Quero ajustar (1 crédito)
+        </Button>
+        <Button onClick={onConfirm} size="lg">
+          Está perfeito <Check className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+/* ---------------- Step 8 — Final ---------------- */
+
+const Step8 = ({
+  onDownload,
+  onBack,
+}: {
+  onDownload: () => void;
+  onBack: () => void;
+}) => (
+  <div className="space-y-6 text-center py-6">
+    <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+      <Check className="h-7 w-7 text-primary" />
+    </div>
+    <header className="space-y-2">
+      <p className="text-sm text-primary font-medium">CAIC orgulhoso</p>
+      <h1 className="font-display text-3xl md:text-4xl tracking-tight">
+        Pronto. Bora colocar o filho no mundo?
+      </h1>
+      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+        Tá tudo salvo nos seus carrosséis. Pode baixar agora ou voltar pra galeria.
+      </p>
+    </header>
+
+    <div className="grid gap-3 sm:grid-cols-2 max-w-md mx-auto">
+      <button
+        type="button"
+        onClick={onDownload}
+        className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-soft transition-smooth"
+      >
+        <Download className="h-5 w-5 text-primary mb-3" />
+        <p className="font-display text-lg leading-snug mb-1">Baixar agora</p>
+        <p className="text-sm text-muted-foreground">.zip com os PNGs + legenda.</p>
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          toast({
+            title: "Em breve",
+            description: "Agendamento via Buffer/Later chega na próxima versão.",
+          })
+        }
+        className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-soft transition-smooth opacity-80"
+      >
+        <CalendarClock className="h-5 w-5 text-primary mb-3" />
+        <p className="font-display text-lg leading-snug mb-1">Agendar pra depois</p>
+        <p className="text-sm text-muted-foreground">Em breve — Buffer / Later.</p>
+      </button>
+    </div>
+
+    <Button variant="ghost" onClick={onBack} className="mt-2">
+      <ArrowLeft className="h-4 w-4" /> Voltar pra meus carrosséis
+    </Button>
+  </div>
+);
+
