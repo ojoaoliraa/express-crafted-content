@@ -1,6 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Sparkles, Lightbulb, Loader2, Check, Wand2, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Sparkles,
+  Lightbulb,
+  Loader2,
+  Check,
+  Wand2,
+  RefreshCw,
+  Upload,
+  Image as ImageIcon,
+  Shuffle,
+  Download,
+  CalendarClock,
+  X,
+} from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,8 +39,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { rankFormats, type FormatMatch, type CarouselFormat } from "@/lib/formats";
 import { useAuth } from "@/hooks/useAuth";
+import { SlideCard } from "@/components/SlideCard";
+import { toPng } from "html-to-image";
+import JSZip from "jszip";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 8;
+
+type ImageMode = "upload" | "stock" | "mix" | null;
+interface StockImage {
+  id: string;
+  url: string;
+  thumb: string;
+  source: "unsplash" | "pexels";
+  credit: string;
+  link: string;
+}
+interface SlideImage {
+  url: string;            // displayable (object URL or remote)
+  source: "upload" | "stock";
+  credit?: string;
+  stockMeta?: StockImage;
+}
 
 type IdeaMode = "own" | "suggested" | null;
 
