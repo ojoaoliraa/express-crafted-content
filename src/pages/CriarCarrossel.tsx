@@ -339,10 +339,194 @@ const CriarCarrossel = () => {
   };
 
   const handleApprove = () => {
-    toast({
-      title: "Copy aprovada",
-      description: "Próxima parte do fluxo cuida das imagens.",
+    // Vai pra etapa de imagens
+    setImageMode(null);
+    setStep(6);
+  };
+
+  // ----------- Etapa 6: imagens -----------
+
+  const buildKeywordsFromCopy = () => {
+    const text = [finalIdea, ...slides.map((s) => `${s.title} ${s.body}`)].join(" ");
+    // pega palavras-chave grosseiras
+    const stop = new Set([
+      "de","da","do","das","dos","e","o","a","os","as","em","um","uma","no","na","pra","para","por","com","que","se","sobre","mais","seu","sua","ser","tem","tô","você","voce","caic",
+    ]);
+    const words = text
+      .toLowerCase()
+      .replace(/[^a-záéíóúâêôãõç\s]/gi, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !stop.has(w));
+    const freq = new Map<string, number>();
+    for (const w of words) freq.set(w, (freq.get(w) ?? 0) + 1);
+    return Array.from(freq.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([w]) => w)
+      .join(" ");
+  };
+
+  const fetchStock = async (override?: string) => {
+    const query = (override ?? stockQuery ?? buildKeywordsFromCopy()).trim() || "aesthetic minimal";
+    setStockQuery(query);
+    setLoadingStock(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-stock-images", {
+        body: { query },
+      });
+      if (error) throw error;
+      setStockImages(data?.images ?? []);
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Não rolou buscar fotos",
+        description: "Tenta de novo ou sobe as suas.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingStock(false);
+    }
+  };
+
+  const assignUpload = (index: number, file: File) => {
+    const url = URL.createObjectURL(file);
+    setSlideImages((prev) => ({
+      ...prev,
+      [index]: { url, source: "upload" },
+    }));
+  };
+
+  const assignStock = (index: number, img: StockImage) => {
+    setSlideImages((prev) => ({
+      ...prev,
+      [index]: { url: img.url, source: "stock", credit: img.credit, stockMeta: img },
+    }));
+    setPickingForSlide(null);
+  };
+
+  const removeImage = (index: number) => {
+    setSlideImages((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
     });
+  };
+
+  const allSlidesHaveImages = slides.length > 0 && slides.every((s) => slideImages[s.index]);
+
+  // ----------- Etapa 7: render -----------
+
+  const handleRender = async () => {
+    setStep(7);
+    setRendering(true);
+    setRenderedPreviews([]);
+    setRenderedBlobs([]);
+    try {
+      // espera o DOM dos render targets montar
+      await new Promise((r) => setTimeout(r, 200));
+      const previews: { index: number; dataUrl: string }[] = [];
+      const blobs: { index: number; blob: Blob }[] = [];
+      for (const s of slides) {
+        const node = renderRefs.current[s.index];
+        if (!node) continue;
+        const dataUrl = await toPng(node, {
+          pixelRatio: 1,
+          cacheBust: true,
+          backgroundColor: "#0a0a0a",
+        });
+        previews.push({ index: s.index, dataUrl });
+        const blob = await (await fetch(dataUrl)).blob();
+        blobs.push({ index: s.index, blob });
+      }
+      setRenderedPreviews(previews);
+      setRenderedBlobs(blobs);
+      setPreviewSlide(0);
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Erro ao montar carrossel",
+        description: err?.message ?? "Tenta de novo.",
+        variant: "destructive",
+      });
+      setStep(6);
+    } finally {
+      setRendering(false);
+    }
+  };
+
+  const handleAdjust = async () => {
+    if ((credits ?? 0) < 1) {
+      toast({ title: "Sem créditos", description: "Recarrega pra ajustar.", variant: "destructive" });
+      return;
+    }
+    // volta pra etapa 6 pra trocar imagens
+    setStep(6);
+  };
+
+  // ----------- Etapa 8: salvar + download -----------
+
+  const handleConfirmFinal = async () => {
+    if (!user) return;
+    try {
+      // Upload pro storage privado
+      const uploads: { index: number; path: string }[] = [];
+      const carouselId = crypto.randomUUID();
+      for (const r of renderedBlobs) {
+        const path = `${user.id}/${carouselId}/slide-${r.index}.png`;
+        const { error } = await supabase.storage
+          .from("carousel-images")
+          .upload(path, r.blob, { contentType: "image/png", upsert: true });
+        if (error) throw error;
+        uploads.push({ index: r.index, path });
+      }
+
+      const { error: insErr } = await supabase.from("carousels").insert({
+        id: carouselId,
+        user_id: user.id,
+        idea: finalIdea,
+        objective,
+        format_chosen: chosenFormat?.id ?? null,
+        copy_json: { slides, caption } as any,
+        images_json: { items: uploads } as any,
+        status: "approved",
+      });
+      if (insErr) throw insErr;
+      setSavedCarouselId(carouselId);
+      setStep(8);
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Não consegui salvar",
+        description: err?.message ?? "Tenta de novo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder("carrossel-caic")!;
+      for (const r of renderedBlobs.sort((a, b) => a.index - b.index)) {
+        folder.file(`slide-${String(r.index).padStart(2, "0")}.png`, r.blob);
+      }
+      folder.file("legenda.txt", caption || "");
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `carrossel-caic-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({
+        title: "Não consegui gerar o zip",
+        description: err?.message ?? "Tenta de novo.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
