@@ -586,14 +586,55 @@ const CriarCarrossel = () => {
               onRegenerate={handleRegenerate}
             />
           )}
+
+          {step === 6 && (
+            <Step6
+              slides={slides}
+              imageMode={imageMode}
+              setImageMode={setImageMode}
+              slideImages={slideImages}
+              assignUpload={assignUpload}
+              assignStock={assignStock}
+              removeImage={removeImage}
+              stockImages={stockImages}
+              loadingStock={loadingStock}
+              stockQuery={stockQuery}
+              setStockQuery={setStockQuery}
+              fetchStock={fetchStock}
+              pickingForSlide={pickingForSlide}
+              setPickingForSlide={setPickingForSlide}
+            />
+          )}
+
+          {step === 7 && (
+            <Step7
+              rendering={rendering}
+              renderedPreviews={renderedPreviews}
+              previewSlide={previewSlide}
+              setPreviewSlide={setPreviewSlide}
+              credits={credits}
+              onConfirm={handleConfirmFinal}
+              onAdjust={handleAdjust}
+            />
+          )}
+
+          {step === 8 && (
+            <Step8
+              onDownload={handleDownloadZip}
+              onBack={() => navigate("/app")}
+            />
+          )}
         </div>
 
         {/* Footer nav */}
         <div className="mt-10 flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={handleBack} disabled={generating}>
-            <ArrowLeft className="h-4 w-4" />
-            {step === 1 ? "Cancelar" : "Voltar"}
-          </Button>
+          {step !== 8 && (
+            <Button variant="ghost" onClick={handleBack} disabled={generating || rendering}>
+              <ArrowLeft className="h-4 w-4" />
+              {step === 1 ? "Cancelar" : "Voltar"}
+            </Button>
+          )}
+          {step === 8 && <div />}
 
           {step === 1 && (
             <Button onClick={handleAdvance} disabled={!canAdvanceFromStep1} size="lg">
@@ -610,7 +651,30 @@ const CriarCarrossel = () => {
               Pedir os formatos pro CAIC <Sparkles className="h-4 w-4" />
             </Button>
           )}
+          {step === 6 && (
+            <Button onClick={handleRender} disabled={!allSlidesHaveImages} size="lg">
+              Montar carrossel <Sparkles className="h-4 w-4" />
+            </Button>
+          )}
         </div>
+      </div>
+
+      {/* Render targets escondidos (1080x1080) — usados pra gerar PNGs */}
+      <div className="fixed -left-[10000px] top-0 pointer-events-none" aria-hidden>
+        {step >= 6 &&
+          slides.map((s) => (
+            <SlideCard
+              key={`render-${s.index}`}
+              ref={(el) => (renderRefs.current[s.index] = el)}
+              index={s.index}
+              total={slides.length}
+              title={s.title}
+              body={s.body}
+              kind={s.kind}
+              imageUrl={slideImages[s.index]?.url}
+              variant="render"
+            />
+          ))}
       </div>
 
       <AlertDialog open={confirmRegenerate} onOpenChange={setConfirmRegenerate}>
