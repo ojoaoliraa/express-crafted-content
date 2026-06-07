@@ -129,6 +129,24 @@ const CriarCarrossel = () => {
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
 
+  // Step 6 — Imagens
+  const [imageMode, setImageMode] = useState<ImageMode>(null);
+  const [slideImages, setSlideImages] = useState<Record<number, SlideImage>>({});
+  const [stockImages, setStockImages] = useState<StockImage[]>([]);
+  const [loadingStock, setLoadingStock] = useState(false);
+  const [stockQuery, setStockQuery] = useState("");
+  const [pickingForSlide, setPickingForSlide] = useState<number | null>(null);
+
+  // Step 7 — Render
+  const renderRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const [rendering, setRendering] = useState(false);
+  const [renderedPreviews, setRenderedPreviews] = useState<{ index: number; dataUrl: string }[]>([]);
+  const [previewSlide, setPreviewSlide] = useState(0);
+
+  // Step 8 — Final
+  const [renderedBlobs, setRenderedBlobs] = useState<{ index: number; blob: Blob }[]>([]);
+  const [savedCarouselId, setSavedCarouselId] = useState<string | null>(null);
+
   // Carrega créditos atuais quando entra na etapa 5
   useEffect(() => {
     if (step !== 5 || !user) return;
