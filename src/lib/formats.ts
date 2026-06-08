@@ -1,252 +1,348 @@
-// Biblioteca de formatos de carrossel do CAIC.
-// O JSON completo será colado depois — por enquanto, esqueleto + tipos
-// + uma seed mínima pra que o matching funcione no fluxo.
+// Biblioteca de mecânicas de carrossel do CAIC.
+// Estrutura preenchida com base nos 8 formatos canônicos.
+// O conteúdo definitivo virá de /docs/biblioteca-mecanicas.md — ajustar quando chegar.
 
-export type ObjectiveKey =
-  | "identificacao"
-  | "virar_chave"
-  | "valor_percebido"
-  | "autoridade"
-  | "converter"
-  | "educar"
-  | "emocional";
-
-export type ProductType =
-  | "info_product"
-  | "service"
-  | "physical_product"
-  | "saas"
-  | "personal_brand"
-  | "any";
-
-export type ToneKey =
-  | "proximo"
-  | "tecnico"
-  | "provocador"
-  | "inspirador"
-  | "divertido"
-  | "elegante"
-  | "any";
-
-export type ResourceKey = "depoimento" | "dados" | "comparacao" | "produto" | "virada_crenca";
-
-export interface CarouselFormat {
-  id: string; // F1..F8
+export type Format = {
+  id: string;
   name: string;
   anchor_phrase: string;
-  short_description: string;
-  objetivo_match: Partial<Record<ObjectiveKey, number>>; // 0..3
-  tipo_produto_match: Partial<Record<ProductType, number>>; // 0..2
-  autoridade_match: number; // 0..2 (quanto o formato projeta autoridade)
-  tom_match: Partial<Record<ToneKey, number>>; // 0..1
-  recursos_match: Partial<Record<ResourceKey, number>>; // 0..1 (recursos que potencializam)
-  slide_count: number;
-  complexity: "low" | "medium" | "high";
-  image_dependency: "low" | "medium" | "high";
-}
+  function: string;
+  tone: string[];
+  triggers: string[];
+  step_formula: string[];
+  example_other_niche: string;
+  contraindications: string[];
+  metadata: {
+    slide_count_min: number;
+    slide_count_max: number;
+    complexity: "baixa" | "média" | "alta";
+    image_dependency: "baixa" | "média" | "alta" | "muito_alta";
+    voice_required: string;
+  };
+  matching: {
+    objetivos: string[];
+    tipos_produto: string[];
+    autoridade: ("iniciante" | "intermediário" | "avançado")[];
+    tom: string[];
+    recursos: string[];
+  };
+};
 
-// Seed inicial — substituir pelo JSON completo quando ele chegar.
-export const FORMATS: CarouselFormat[] = [
+export const FORMATS: Format[] = [
   {
     id: "F1",
     name: "Lista anafórica",
     anchor_phrase: "Toda vez que… eu… Toda vez que… eu…",
-    short_description: "Repetição rítmica que cria identificação imediata.",
-    objetivo_match: { identificacao: 3, emocional: 2, virar_chave: 1 },
-    tipo_produto_match: { personal_brand: 2, service: 1, info_product: 1, any: 1 },
-    autoridade_match: 1,
-    tom_match: { proximo: 1, divertido: 1, inspirador: 1 },
-    recursos_match: {},
-    slide_count: 7,
-    complexity: "low",
-    image_dependency: "low",
+    function:
+      "Criar identificação imediata por repetição rítmica de uma estrutura sintática.",
+    tone: ["próximo", "divertido", "inspirador"],
+    triggers: ["identificação", "pertencimento", "ritmo"],
+    step_formula: [
+      "Slide 1: capa com a frase-âncora",
+      "Slides 2–6: variações da mesma estrutura, uma por slide",
+      "Slide final: virada ou CTA leve",
+    ],
+    example_other_niche:
+      "Toda vez que abro o armário e penso 'não tenho roupa', eu na verdade tenho 47 peças que não combinam entre si.",
+    contraindications: [
+      "Conteúdo muito técnico que precise de explicação linear",
+      "Quando não há padrão claro a ser repetido",
+    ],
+    metadata: {
+      slide_count_min: 6,
+      slide_count_max: 8,
+      complexity: "baixa",
+      image_dependency: "baixa",
+      voice_required: "primeira pessoa",
+    },
+    matching: {
+      objetivos: ["identificacao", "emocional", "virar_chave"],
+      tipos_produto: ["personal_brand", "service", "info_product"],
+      autoridade: ["iniciante", "intermediário", "avançado"],
+      tom: ["proximo", "divertido", "inspirador"],
+      recursos: [],
+    },
   },
   {
     id: "F2",
     name: "Pergunta + reframe",
     anchor_phrase: "E se o problema não fosse X, e sim Y?",
-    short_description: "Abre com pergunta provocativa e reenquadra a crença.",
-    objetivo_match: { virar_chave: 3, educar: 2, autoridade: 1 },
-    tipo_produto_match: { info_product: 2, service: 2, saas: 1, any: 1 },
-    autoridade_match: 2,
-    tom_match: { provocador: 1, tecnico: 1, proximo: 1 },
-    recursos_match: { virada_crenca: 1 },
-    slide_count: 6,
-    complexity: "medium",
-    image_dependency: "low",
+    function:
+      "Abrir com pergunta provocativa e reenquadrar a crença dominante do leitor.",
+    tone: ["provocador", "técnico", "próximo"],
+    triggers: ["curiosidade", "dissonância cognitiva", "insight"],
+    step_formula: [
+      "Slide 1: pergunta-âncora",
+      "Slide 2: a crença atual do leitor",
+      "Slide 3: por que ela parece verdadeira",
+      "Slide 4: o reframe (a nova lente)",
+      "Slide 5: consequência prática",
+      "Slide 6: CTA",
+    ],
+    example_other_niche:
+      "E se o problema não fosse falta de tempo pra treinar, e sim excesso de planejamento?",
+    contraindications: ["Audiência fria sem contexto do tema"],
+    metadata: {
+      slide_count_min: 5,
+      slide_count_max: 7,
+      complexity: "média",
+      image_dependency: "baixa",
+      voice_required: "segunda pessoa",
+    },
+    matching: {
+      objetivos: ["virar_chave", "educar", "autoridade"],
+      tipos_produto: ["info_product", "service", "saas"],
+      autoridade: ["intermediário", "avançado"],
+      tom: ["provocador", "tecnico", "proximo"],
+      recursos: ["virada_crenca"],
+    },
   },
   {
     id: "F3",
     name: "Não é só X, é Y",
     anchor_phrase: "Não é só [coisa óbvia], é [insight].",
-    short_description: "Quebra o senso comum em camadas.",
-    objetivo_match: { valor_percebido: 3, virar_chave: 2, autoridade: 1 },
-    tipo_produto_match: { service: 2, info_product: 2, physical_product: 1, any: 1 },
-    autoridade_match: 2,
-    tom_match: { elegante: 1, provocador: 1, tecnico: 1 },
-    recursos_match: { produto: 1 },
-    slide_count: 6,
-    complexity: "medium",
-    image_dependency: "medium",
+    function: "Quebrar senso comum em camadas e elevar valor percebido.",
+    tone: ["elegante", "provocador", "técnico"],
+    triggers: ["profundidade", "valor escondido", "reposicionamento"],
+    step_formula: [
+      "Slide 1: âncora 'Não é só X, é Y'",
+      "Slides 2–5: cada slide aprofunda uma camada do Y",
+      "Slide 6: síntese + CTA",
+    ],
+    example_other_niche:
+      "Não é só um corte de cabelo. É a primeira coisa que as pessoas veem antes de te ouvirem falar.",
+    contraindications: ["Quando o X não é genuinamente óbvio pro público"],
+    metadata: {
+      slide_count_min: 5,
+      slide_count_max: 7,
+      complexity: "média",
+      image_dependency: "média",
+      voice_required: "terceira pessoa ou impessoal",
+    },
+    matching: {
+      objetivos: ["valor_percebido", "virar_chave", "autoridade"],
+      tipos_produto: ["service", "info_product", "physical_product"],
+      autoridade: ["intermediário", "avançado"],
+      tom: ["elegante", "provocador", "tecnico"],
+      recursos: ["produto"],
+    },
   },
   {
     id: "F4",
     name: "Crença velha × crença nova",
     anchor_phrase: "Antes eu acreditava que… Hoje eu sei que…",
-    short_description: "Confronta o antes e o depois de uma crença.",
-    objetivo_match: { virar_chave: 3, autoridade: 2, educar: 2 },
-    tipo_produto_match: { personal_brand: 2, info_product: 2, service: 1, any: 1 },
-    autoridade_match: 2,
-    tom_match: { proximo: 1, provocador: 1, inspirador: 1 },
-    recursos_match: { virada_crenca: 1 },
-    slide_count: 7,
-    complexity: "low",
-    image_dependency: "low",
+    function:
+      "Confrontar antes/depois de uma crença e marcar autoridade pela jornada.",
+    tone: ["próximo", "provocador", "inspirador"],
+    triggers: ["transformação", "autoridade vivida", "permissão"],
+    step_formula: [
+      "Slide 1: âncora antes/depois",
+      "Slides 2–3: o que eu acreditava e por quê",
+      "Slide 4: o evento que virou a chave",
+      "Slides 5–6: o que sei hoje + como aplico",
+      "Slide 7: convite/CTA",
+    ],
+    example_other_niche:
+      "Antes eu acreditava que vender era empurrar. Hoje sei que vender é traduzir.",
+    contraindications: ["Sem virada genuína na sua trajetória"],
+    metadata: {
+      slide_count_min: 6,
+      slide_count_max: 8,
+      complexity: "baixa",
+      image_dependency: "baixa",
+      voice_required: "primeira pessoa",
+    },
+    matching: {
+      objetivos: ["virar_chave", "autoridade", "educar"],
+      tipos_produto: ["personal_brand", "info_product", "service"],
+      autoridade: ["intermediário", "avançado"],
+      tom: ["proximo", "provocador", "inspirador"],
+      recursos: ["virada_crenca"],
+    },
   },
   {
     id: "F5",
     name: "Depoimento de jornada",
     anchor_phrase: "Quando comecei… No meio do caminho… Hoje…",
-    short_description: "Storytelling em 3 atos com transformação real.",
-    objetivo_match: { emocional: 3, identificacao: 2, converter: 2, autoridade: 1 },
-    tipo_produto_match: { personal_brand: 2, service: 2, info_product: 2, any: 1 },
-    autoridade_match: 2,
-    tom_match: { proximo: 1, inspirador: 1 },
-    recursos_match: { depoimento: 1 },
-    slide_count: 8,
-    complexity: "medium",
-    image_dependency: "medium",
+    function: "Storytelling em três atos com transformação real e provas.",
+    tone: ["próximo", "inspirador"],
+    triggers: ["empatia", "prova social", "esperança"],
+    step_formula: [
+      "Slide 1: âncora dos 3 atos",
+      "Slides 2–3: ponto de partida (dor, contexto)",
+      "Slides 4–5: meio (obstáculo + decisão)",
+      "Slides 6–7: hoje (resultado tangível)",
+      "Slide 8: CTA ou lição",
+    ],
+    example_other_niche:
+      "Quando comecei a correr, não passava de 1 km sem parar. Hoje fechei minha primeira meia maratona.",
+    contraindications: ["Sem caso real ou prova concreta"],
+    metadata: {
+      slide_count_min: 7,
+      slide_count_max: 9,
+      complexity: "média",
+      image_dependency: "média",
+      voice_required: "primeira pessoa ou terceira (cliente)",
+    },
+    matching: {
+      objetivos: ["emocional", "identificacao", "converter", "autoridade"],
+      tipos_produto: ["personal_brand", "service", "info_product"],
+      autoridade: ["iniciante", "intermediário", "avançado"],
+      tom: ["proximo", "inspirador"],
+      recursos: ["depoimento"],
+    },
   },
   {
     id: "F6",
     name: "Split-screen binário",
     anchor_phrase: "De um lado… do outro… qual você escolhe?",
-    short_description: "Compara dois caminhos lado a lado e força decisão.",
-    objetivo_match: { converter: 3, valor_percebido: 2, virar_chave: 1 },
-    tipo_produto_match: { service: 2, saas: 2, physical_product: 2, info_product: 1, any: 1 },
-    autoridade_match: 1,
-    tom_match: { provocador: 1, tecnico: 1, elegante: 1 },
-    recursos_match: { comparacao: 1, produto: 1 },
-    slide_count: 6,
-    complexity: "medium",
-    image_dependency: "high",
+    function: "Comparar dois caminhos lado a lado e forçar uma decisão.",
+    tone: ["provocador", "técnico", "elegante"],
+    triggers: ["contraste", "decisão", "clareza"],
+    step_formula: [
+      "Slide 1: âncora binária",
+      "Slides 2–5: pares de comparação (lado A × lado B)",
+      "Slide 6: a escolha + CTA",
+    ],
+    example_other_niche:
+      "De um lado, planilha de Excel improvisada. Do outro, um sistema que fecha o mês em 5 minutos.",
+    contraindications: ["Quando os dois lados não são genuinamente comparáveis"],
+    metadata: {
+      slide_count_min: 5,
+      slide_count_max: 7,
+      complexity: "média",
+      image_dependency: "alta",
+      voice_required: "segunda pessoa",
+    },
+    matching: {
+      objetivos: ["converter", "valor_percebido", "virar_chave"],
+      tipos_produto: ["service", "saas", "physical_product", "info_product"],
+      autoridade: ["intermediário", "avançado"],
+      tom: ["provocador", "tecnico", "elegante"],
+      recursos: ["comparacao", "produto"],
+    },
   },
   {
     id: "F7",
     name: "Razões enumeradas",
     anchor_phrase: "5 motivos pra você [resultado desejado].",
-    short_description: "Lista numerada, didática e escaneável.",
-    objetivo_match: { educar: 3, autoridade: 2, valor_percebido: 1 },
-    tipo_produto_match: { saas: 2, info_product: 2, service: 1, physical_product: 1, any: 1 },
-    autoridade_match: 2,
-    tom_match: { tecnico: 1, elegante: 1, proximo: 1 },
-    recursos_match: { dados: 1 },
-    slide_count: 7,
-    complexity: "low",
-    image_dependency: "low",
+    function: "Lista numerada didática e escaneável que constrói autoridade.",
+    tone: ["técnico", "elegante", "próximo"],
+    triggers: ["clareza", "didatismo", "completude"],
+    step_formula: [
+      "Slide 1: âncora numerada",
+      "Slides 2–6: um motivo por slide (título curto + 1 parágrafo)",
+      "Slide 7: síntese + CTA",
+    ],
+    example_other_niche:
+      "5 motivos pra começar a meditar mesmo achando que você não consegue.",
+    contraindications: ["Tema que perde força quando fatiado em itens"],
+    metadata: {
+      slide_count_min: 6,
+      slide_count_max: 8,
+      complexity: "baixa",
+      image_dependency: "baixa",
+      voice_required: "segunda pessoa",
+    },
+    matching: {
+      objetivos: ["educar", "autoridade", "valor_percebido"],
+      tipos_produto: ["saas", "info_product", "service", "physical_product"],
+      autoridade: ["iniciante", "intermediário", "avançado"],
+      tom: ["tecnico", "elegante", "proximo"],
+      recursos: ["dados"],
+    },
   },
   {
     id: "F8",
     name: "Marca personificada",
     anchor_phrase: "Se a [marca] fosse uma pessoa, ela seria…",
-    short_description: "Dá voz e personalidade à marca em primeira pessoa.",
-    objetivo_match: { emocional: 3, identificacao: 2, valor_percebido: 1 },
-    tipo_produto_match: { personal_brand: 2, physical_product: 2, service: 1, any: 1 },
-    autoridade_match: 1,
-    tom_match: { divertido: 1, proximo: 1, elegante: 1 },
-    recursos_match: {},
-    slide_count: 6,
-    complexity: "high",
-    image_dependency: "high",
+    function: "Dar voz e personalidade à marca em primeira pessoa.",
+    tone: ["divertido", "próximo", "elegante"],
+    triggers: ["identidade", "afeto", "memorabilidade"],
+    step_formula: [
+      "Slide 1: âncora personificada",
+      "Slides 2–5: traços (como veste, como fala, o que ama, o que recusa)",
+      "Slide 6: convite a quem se identifica",
+    ],
+    example_other_niche:
+      "Se a cafeteria fosse uma pessoa, seria aquela amiga que te escuta sem dar conselho.",
+    contraindications: ["Marca muito nova sem repertório de personalidade"],
+    metadata: {
+      slide_count_min: 5,
+      slide_count_max: 7,
+      complexity: "alta",
+      image_dependency: "alta",
+      voice_required: "primeira pessoa (marca)",
+    },
+    matching: {
+      objetivos: ["emocional", "identificacao", "valor_percebido"],
+      tipos_produto: ["personal_brand", "physical_product", "service"],
+      autoridade: ["intermediário", "avançado"],
+      tom: ["divertido", "proximo", "elegante"],
+      recursos: [],
+    },
   },
 ];
 
 /* ---------------- Matching ---------------- */
 
-export interface MatchInput {
-  objective: ObjectiveKey | string;
-  productType?: ProductType | string;
-  needsAuthority?: boolean; // derivado do objetivo (autoridade) ou do tom
-  tone?: ToneKey | string;
-  resources: string[]; // chaves de molho marcadas pelo usuário
-}
-
-export interface FormatMatch {
-  format: CarouselFormat;
-  score: number;
-  isWildcard: boolean;
-  reason: string; // "Sugerimos porque…"
-}
-
-const W = { objective: 3, product: 2, authority: 2, tone: 1, resources: 1 };
-
-const objectiveLabel: Record<string, string> = {
-  identificacao: "criar identificação",
-  virar_chave: "virar a chave do leitor",
-  valor_percebido: "elevar valor percebido",
-  autoridade: "construir autoridade",
-  converter: "forçar uma escolha",
-  educar: "educar",
-  emocional: "conectar emocionalmente",
+const WEIGHTS = {
+  objetivo: 3,
+  tipo_produto: 2,
+  autoridade: 2,
+  tom: 1,
+  recursos: 1,
 };
 
-export function rankFormats(input: MatchInput): FormatMatch[] {
-  const scored = FORMATS.map((f) => {
-    let score = 0;
+export interface MatchInput {
+  objetivo: string;
+  tipo_produto: string;
+  autoridade: string;
+  tom: string;
+  recursos: string[];
+}
 
-    const objScore = (f.objetivo_match[input.objective as ObjectiveKey] ?? 0) / 3;
-    score += objScore * W.objective;
+function scoreFormat(f: Format, input: MatchInput): number {
+  let score = 0;
 
-    const prod = (input.productType as ProductType) || "any";
-    const prodScore = ((f.tipo_produto_match[prod] ?? f.tipo_produto_match.any ?? 0)) / 2;
-    score += prodScore * W.product;
+  if (f.matching.objetivos.includes(input.objetivo)) score += WEIGHTS.objetivo;
 
-    const authScore = (input.needsAuthority ? f.autoridade_match : f.autoridade_match * 0.5) / 2;
-    score += authScore * W.authority;
+  if (
+    f.matching.tipos_produto.includes(input.tipo_produto) ||
+    f.matching.tipos_produto.includes("any")
+  ) {
+    score += WEIGHTS.tipo_produto;
+  }
 
-    const tone = (input.tone as ToneKey) || "any";
-    const toneScore = f.tom_match[tone] ?? f.tom_match.any ?? 0;
-    score += toneScore * W.tone;
+  if (
+    input.autoridade &&
+    f.matching.autoridade.includes(input.autoridade as "iniciante" | "intermediário" | "avançado")
+  ) {
+    score += WEIGHTS.autoridade;
+  }
 
-    const resHits = input.resources.reduce(
-      (acc, r) => acc + (f.recursos_match[r as ResourceKey] ?? 0),
-      0,
-    );
-    const resScore = Math.min(1, resHits / Math.max(1, input.resources.length || 1));
-    score += resScore * W.resources;
+  if (input.tom && f.matching.tom.includes(input.tom)) score += WEIGHTS.tom;
 
-    return { format: f, score };
-  });
+  if (input.recursos && input.recursos.length > 0) {
+    const hits = input.recursos.filter((r) => f.matching.recursos.includes(r)).length;
+    if (hits > 0) {
+      score += WEIGHTS.recursos * (hits / input.recursos.length);
+    }
+  }
 
+  return score;
+}
+
+export function matchFormats(input: MatchInput): { top3: Format[]; wildcard: Format } {
+  const scored = FORMATS.map((f) => ({ format: f, score: scoreFormat(f, input) }));
   scored.sort((a, b) => b.score - a.score);
 
-  const top3 = scored.slice(0, 3);
+  const top3 = scored.slice(0, 3).map((s) => s.format);
   const rest = scored.slice(3);
-  const wildcard = rest.length
-    ? rest[Math.floor(Math.random() * rest.length)]
-    : scored[scored.length - 1];
+  const wildcard =
+    rest.length > 0
+      ? rest[Math.floor(Math.random() * rest.length)].format
+      : scored[scored.length - 1].format;
 
-  const buildReason = (f: CarouselFormat): string => {
-    const objPart = objectiveLabel[input.objective] ?? "seu objetivo";
-    const tonePart = input.tone && input.tone !== "any" ? `seu tom é ${input.tone}` : null;
-    const parts = [`seu objetivo é ${objPart}`];
-    if (tonePart) parts.push(tonePart);
-    return `Sugerimos porque ${parts.join(" e ")}.`;
-  };
-
-  const result: FormatMatch[] = top3.map(({ format, score }) => ({
-    format,
-    score,
-    isWildcard: false,
-    reason: buildReason(format),
-  }));
-
-  result.push({
-    format: wildcard.format,
-    score: wildcard.score,
-    isWildcard: true,
-    reason: "Coringa do CAIC — fora do óbvio, mas pode surpreender.",
-  });
-
-  return result;
+  return { top3, wildcard };
 }
