@@ -346,3 +346,71 @@ export function matchFormats(input: MatchInput): { top3: Format[]; wildcard: For
 
   return { top3, wildcard };
 }
+
+/* ---------------- Backward-compat shims ---------------- */
+// Mantém a API antiga usada por src/pages/CriarCarrossel.tsx funcionando.
+
+export type CarouselFormat = Format & {
+  short_description: string;
+  slide_count: number;
+};
+
+export interface FormatMatch {
+  format: CarouselFormat;
+  score: number;
+  isWildcard: boolean;
+  reason: string;
+}
+
+function toCarouselFormat(f: Format): CarouselFormat {
+  return {
+    ...f,
+    short_description: f.function,
+    slide_count: Math.round((f.metadata.slide_count_min + f.metadata.slide_count_max) / 2),
+  };
+}
+
+export interface RankInput {
+  objective: string;
+  productType?: string;
+  needsAuthority?: boolean;
+  tone?: string;
+  resources: string[];
+}
+
+export function rankFormats(input: RankInput): FormatMatch[] {
+  const matchInput: MatchInput = {
+    objetivo: input.objective,
+    tipo_produto: input.productType ?? "any",
+    autoridade: input.needsAuthority ? "avançado" : "intermediário",
+    tom: input.tone ?? "any",
+    recursos: input.resources ?? [],
+  };
+
+  const scored = FORMATS.map((f) => ({ format: f, score: scoreFormat(f, matchInput) }));
+  scored.sort((a, b) => b.score - a.score);
+
+  const top3 = scored.slice(0, 3);
+  const rest = scored.slice(3);
+  const wildcard =
+    rest.length > 0 ? rest[Math.floor(Math.random() * rest.length)] : scored[scored.length - 1];
+
+  const reason = (f: Format) =>
+    `Sugerimos porque combina com seu objetivo (${input.objective}).`;
+
+  const result: FormatMatch[] = top3.map(({ format, score }) => ({
+    format: toCarouselFormat(format),
+    score,
+    isWildcard: false,
+    reason: reason(format),
+  }));
+
+  result.push({
+    format: toCarouselFormat(wildcard.format),
+    score: wildcard.score,
+    isWildcard: true,
+    reason: "Coringa do CAIC — fora do óbvio, mas pode surpreender.",
+  });
+
+  return result;
+}
