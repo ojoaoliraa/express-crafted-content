@@ -15,6 +15,84 @@ interface Idea {
   why_it_works: string;
 }
 
+async function requestIdeasFromAi(
+  LOVABLE_API_KEY: string,
+  systemPrompt: string,
+  userPrompt: string,
+) {
+  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Lovable-API-Key": LOVABLE_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      max_tokens: 700,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+  });
+}
+
+function escapeNewlinesInsideStrings(value: string) {
+  let result = "";
+  let inString = false;
+  let isEscaped = false;
+
+  for (const char of value) {
+    if (char === '"' && !isEscaped) {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+
+    if (inString && (char === "\n" || char === "\r")) {
+      result += "\\n";
+      isEscaped = false;
+      continue;
+    }
+
+    result += char;
+
+    if (char === "\\" && !isEscaped) {
+      isEscaped = true;
+    } else {
+      isEscaped = false;
+    }
+  }
+
+  return result;
+}
+
+function extractIdeasJson(raw: string): { ideas?: Idea[] } {
+  const withoutFences = raw
+    .trim()
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const jsonStart = withoutFences.indexOf("{");
+  const jsonEnd = withoutFences.lastIndexOf("}");
+
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    throw new Error("No JSON object found in AI response");
+  }
+
+  const candidate = withoutFences.slice(jsonStart, jsonEnd + 1);
+  const repaired = escapeNewlinesInsideStrings(
+    candidate
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""),
+  );
+
+  return JSON.parse(repaired);
+}
+
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -69,7 +147,7 @@ Deno.serve(async (req) => {
       .filter(Boolean);
     const ultimosTxt = ultimos.length > 0 ? ultimos.map((t) => `- ${t}`).join("\n") : "(nenhum carrossel anterior)";
 
-    const systemPrompt = `Você é o CAIC, um copywriter brasileiro especialista em conteúdo para Instagram. Sugere ideias com personalidade, fugindo do óbvio, evitando jargão de guru.`;
+    const systemPrompt = `Você é o CAIC, um copywriter brasileiro especialista em conteúdo para Instagram. Responda apenas com JSON válido, sem markdown, sem comentários e sem texto fora do objeto. Sugira ideias com personalidade, fugindo do óbvio e evitando jargão de guru.`;
 
     const userPrompt = `Com base no posicionamento '${positioning}', público '${audience}' e tom '${tone}', sugira 5 ideias de carrossel de Instagram para esta semana. Evite temas próximos de:
 ${ultimosTxt}
@@ -82,40 +160,38 @@ Cada ideia deve:
 Saída obrigatória: APENAS um objeto JSON válido, sem markdown nem comentários, no formato exato:
 { "ideas": [ { "title": "...", "hook": "...", "why_it_works": "..." } ] }`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Lovable-API-Key": LOVABLE_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        max_tokens: 1200,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    let parsed: { ideas?: Idea[] } | null = null;
+    let lastRaw = "";
 
-    if (aiRes.status === 429) return json(429, { error: "Limite de requisições da IA. Tente em instantes." });
-    if (aiRes.status === 402) return json(402, { error: "Créditos da IA esgotados na workspace." });
-    if (!aiRes.ok) {
-      const txt = await aiRes.text();
-      console.error("suggest-ideas AI error", aiRes.status, txt);
-      return json(500, { error: "Erro ao gerar ideias" });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const prompt = attempt === 0
+        ? userPrompt
+        : `${userPrompt}\n\nReenvie do zero. Não use markdown. Não trunque. Cada item de ideas deve conter obrigatoriamente title, hook e why_it_works como strings.`;
+
+      const aiRes = await requestIdeasFromAi(LOVABLE_API_KEY, systemPrompt, prompt);
+
+      if (aiRes.status === 429) return json(429, { error: "Limite de requisições da IA. Tente em instantes." });
+      if (aiRes.status === 402) return json(402, { error: "Créditos da IA esgotados na workspace." });
+      if (!aiRes.ok) {
+        const txt = await aiRes.text();
+        console.error("suggest-ideas AI error", aiRes.status, txt);
+        return json(500, { error: "Erro ao gerar ideias" });
+      }
+
+      const aiJson = await aiRes.json();
+      const raw: string = aiJson?.choices?.[0]?.message?.content ?? "";
+      lastRaw = raw;
+
+      try {
+        parsed = extractIdeasJson(raw);
+        break;
+      } catch (e) {
+        console.error(`suggest-ideas parse error attempt ${attempt + 1}`, e, raw);
+      }
     }
 
-    const aiJson = await aiRes.json();
-    const raw: string = aiJson?.choices?.[0]?.message?.content ?? "";
-    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-
-    let parsed: { ideas?: Idea[] };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e) {
-      console.error("suggest-ideas parse error", e, raw);
-      return json(500, { error: "Resposta da IA não veio em JSON válido" });
+    if (!parsed) {
+      return json(500, { error: "Resposta da IA não veio em JSON válido", raw_preview: lastRaw.slice(0, 200) });
     }
 
     const ideas = Array.isArray(parsed.ideas)
