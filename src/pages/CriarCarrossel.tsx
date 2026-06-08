@@ -309,8 +309,9 @@ const CriarCarrossel = () => {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setSlides(data.slides ?? []);
-      setCaption(data.caption ?? "");
+      setSlides(data.copy?.slides ?? []);
+      setCaption(data.copy?.caption ?? "");
+
     } catch (err: any) {
       console.error(err);
       toast({
