@@ -293,24 +293,19 @@ const CriarCarrossel = () => {
     setGenerating(true);
     try {
       const sauceList = (Object.keys(sauces) as SauceKey[])
-        .filter((k) => sauces[k])
-        .map((k) => ({ key: k, detail: sauceDetails[k] }));
+        .filter((k) => sauces[k] && k !== "nada")
+        .map((k) => `${k}${sauceDetails[k] ? `: ${sauceDetails[k]}` : ""}`)
+        .join(" | ");
 
       const { data, error } = await supabase.functions.invoke("generate-copy", {
         body: {
           idea: finalIdea,
           objective,
-          sauces: sauceList,
-          format: {
-            id: format.id,
-            name: format.name,
-            anchor_phrase: format.anchor_phrase,
-            short_description: format.short_description,
-            slide_count: format.slide_count,
-          },
-          isRegeneration,
+          secret_sauce: sauceList || undefined,
+          format_id: format.id,
         },
       });
+
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setSlides(data.slides ?? []);
