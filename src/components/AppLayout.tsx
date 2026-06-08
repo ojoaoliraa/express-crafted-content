@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { TermsModal } from "@/components/TermsModal";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -24,6 +25,8 @@ interface ProfileLite {
   name: string | null;
   email: string | null;
   credits_remaining: number;
+  terms_accepted_at: string | null;
+  privacy_accepted_at: string | null;
 }
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
@@ -41,7 +44,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("name, email, credits_remaining")
+        .select("name, email, credits_remaining, terms_accepted_at, privacy_accepted_at")
         .eq("id", user.id)
         .maybeSingle();
       if (!cancelled && data) setProfile(data);
@@ -125,6 +128,18 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       </header>
 
       <main className="container py-6 md:py-10">{children}</main>
+
+      {user && profile && (!profile.terms_accepted_at || !profile.privacy_accepted_at) ? (
+        <TermsModal
+          userId={user.id}
+          onAccepted={() => {
+            const now = new Date().toISOString();
+            setProfile((p) =>
+              p ? { ...p, terms_accepted_at: now, privacy_accepted_at: now } : p,
+            );
+          }}
+        />
+      ) : null}
 
       {/* Bottom nav (mobile) */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-background/95 backdrop-blur">
