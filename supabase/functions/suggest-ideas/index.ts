@@ -89,7 +89,7 @@ Saída obrigatória: APENAS um objeto JSON válido, sem markdown nem comentário
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-5",
+        model: "google/gemini-2.5-pro",
         max_tokens: 1200,
         messages: [
           { role: "system", content: systemPrompt },
