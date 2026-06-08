@@ -353,6 +353,7 @@ export function matchFormats(input: MatchInput): { top3: Format[]; wildcard: For
 export type CarouselFormat = Format & {
   short_description: string;
   slide_count: number;
+  complexity: "baixa" | "média" | "alta";
 };
 
 export interface FormatMatch {
@@ -367,6 +368,7 @@ function toCarouselFormat(f: Format): CarouselFormat {
     ...f,
     short_description: f.function,
     slide_count: Math.round((f.metadata.slide_count_min + f.metadata.slide_count_max) / 2),
+    complexity: f.metadata.complexity,
   };
 }
 

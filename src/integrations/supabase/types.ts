@@ -23,6 +23,7 @@ export type Database = {
           idea: string | null
           images_json: Json | null
           objective: string | null
+          previous_versions: Json
           status: string
           user_id: string
         }
@@ -34,6 +35,7 @@ export type Database = {
           idea?: string | null
           images_json?: Json | null
           objective?: string | null
+          previous_versions?: Json
           status?: string
           user_id: string
         }
@@ -45,6 +47,7 @@ export type Database = {
           idea?: string | null
           images_json?: Json | null
           objective?: string | null
+          previous_versions?: Json
           status?: string
           user_id?: string
         }
