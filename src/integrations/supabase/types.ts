@@ -114,31 +114,40 @@ export type Database = {
         Row: {
           created_at: string
           credits_remaining: number
+          data_optin: boolean
           email: string | null
           id: string
           name: string | null
           onboarding_complete: boolean
           plan: string
+          privacy_accepted_at: string | null
+          terms_accepted_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           credits_remaining?: number
+          data_optin?: boolean
           email?: string | null
           id: string
           name?: string | null
           onboarding_complete?: boolean
           plan?: string
+          privacy_accepted_at?: string | null
+          terms_accepted_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           credits_remaining?: number
+          data_optin?: boolean
           email?: string | null
           id?: string
           name?: string | null
           onboarding_complete?: boolean
           plan?: string
+          privacy_accepted_at?: string | null
+          terms_accepted_at?: string | null
           updated_at?: string
         }
         Relationships: []
