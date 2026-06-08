@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
 
@@ -8,16 +8,13 @@ export const GoogleButton = ({ label = "Continuar com Google" }: { label?: strin
 
   const handleGoogle = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
-    if (error) {
+    if (result.error) {
       toast({
         title: "Não consegui abrir o Google",
-        description: error.message,
+        description: result.error.message,
         variant: "destructive",
       });
       setLoading(false);
