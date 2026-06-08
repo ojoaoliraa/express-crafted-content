@@ -12,6 +12,8 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
 import CriarCarrossel from "./pages/CriarCarrossel.tsx";
 import CriarCarrosselRender from "./pages/CriarCarrosselRender.tsx";
+import Termos from "./pages/Termos.tsx";
+import Privacidade from "./pages/Privacidade.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/app/criar" element={<CriarCarrossel />} />
             <Route path="/app/criar/render" element={<CriarCarrosselRender />} />
             <Route path="/app/configuracoes" element={<Configuracoes />} />
+            <Route path="/termos" element={<Termos />} />
+            <Route path="/privacidade" element={<Privacidade />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
