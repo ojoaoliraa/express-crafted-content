@@ -198,11 +198,11 @@ Saída obrigatória: APENAS um objeto JSON válido, sem markdown nem comentário
     }
 
     // Debita crédito (mesmo na primeira ou na regeneração)
-    await supabase
+    await supabaseAdmin
       .from("profiles")
       .update({ credits_remaining: credits - 1 })
       .eq("id", user.id);
-    await supabase.from("credit_transactions").insert({
+    await supabaseAdmin.from("credit_transactions").insert({
       user_id: user.id,
       amount: -1,
       reason: body.carousel_id ? "regenerate_copy" : "generate_copy",
