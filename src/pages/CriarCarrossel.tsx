@@ -126,8 +126,21 @@ const CriarCarrossel = () => {
     { index: number; title: string; body: string; kind: string }[]
   >([]);
   const [caption, setCaption] = useState("");
+  const [carouselId, setCarouselId] = useState<string | null>(null);
+  const [copyEmpty, setCopyEmpty] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
+
+  // Debug: log toda mudança de step
+  useEffect(() => {
+    console.log("[CAIC] step changed to:", step, "state:", {
+      objective,
+      format_id: chosenFormat?.id,
+      carousel_id: carouselId,
+      slides_count: slides.length,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // Step 6 — Imagens
   const [imageMode, setImageMode] = useState<ImageMode>(null);
@@ -254,9 +267,50 @@ const CriarCarrossel = () => {
     setStep(4);
   };
 
+  // Mapeia a estrutura crua do edge { index, text, image_keywords }
+  // para a estrutura usada pelo wizard { index, title, body, kind }.
+  const mapSlidesFromCopy = (raw: unknown): { index: number; title: string; body: string; kind: string }[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((s, i, arr) => {
+      const obj = (s ?? {}) as { index?: unknown; text?: unknown; title?: unknown; body?: unknown };
+      const text =
+        typeof obj.text === "string"
+          ? obj.text
+          : typeof obj.title === "string"
+            ? obj.title
+            : "";
+      const parts = text.split(/(?<=[.!?])\s+/);
+      const title = (parts[0] ?? text).trim();
+      const body = parts.slice(1).join(" ").trim() || (typeof obj.body === "string" ? obj.body : "");
+      return {
+        index: typeof obj.index === "number" ? obj.index : i + 1,
+        title,
+        body,
+        kind: i === 0 ? "cover" : i === arr.length - 1 ? "cta" : "content",
+      };
+    });
+  };
+
+  const applyGeneratedCopy = (data: unknown) => {
+    console.log("[CAIC] generate-copy returned:", JSON.stringify(data).slice(0, 500));
+    const payload = (data ?? {}) as {
+      copy?: { caption?: unknown; slides?: unknown };
+      carousel_id?: unknown;
+      credits_remaining?: unknown;
+    };
+    const copy = payload.copy ?? {};
+    const mapped = mapSlidesFromCopy((copy as { slides?: unknown }).slides);
+    setSlides(mapped);
+    setCaption(typeof (copy as { caption?: unknown }).caption === "string" ? (copy as { caption: string }).caption : "");
+    if (typeof payload.carousel_id === "string") setCarouselId(payload.carousel_id);
+    if (typeof payload.credits_remaining === "number") setCredits(payload.credits_remaining);
+    setCopyEmpty(mapped.length === 0);
+  };
+
   const generateCopy = async (isRegeneration = false) => {
     if (!chosenFormat) return;
     setGenerating(true);
+    setCopyEmpty(false);
     try {
       const sauceList = (Object.keys(sauces) as SauceKey[])
         .filter((k) => sauces[k] && k !== "nada")
@@ -269,23 +323,22 @@ const CriarCarrossel = () => {
           objective,
           secret_sauce: sauceList || undefined,
           format_id: chosenFormat.id,
+          carousel_id: isRegeneration ? carouselId : undefined,
         },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
 
-      setSlides(data.copy?.slides ?? []);
-      setCaption(data.copy?.caption ?? "");
-
+      applyGeneratedCopy(data);
     } catch (err: any) {
       console.error(err);
-      const msg = err?.message ?? "Não consegui gerar a copy agora.";
       toast({
         title: "Deu ruim na geração",
-        description: msg,
+        description: err?.message ?? "Não consegui gerar a copy agora.",
         variant: "destructive",
       });
+      setCopyEmpty(true);
     } finally {
       setGenerating(false);
     }
@@ -295,14 +348,16 @@ const CriarCarrossel = () => {
     setChosenFormat(f);
     setSlides([]);
     setCaption("");
+    setCarouselId(null);
+    setCopyEmpty(false);
     setStep(5);
-    // Dispara geração inicial logo em seguida
     setTimeout(() => generateCopyFor(f, false), 0);
   };
 
   // Wrapper que recebe o formato direto (evita race do setState)
   const generateCopyFor = async (format: CarouselFormat, isRegeneration: boolean) => {
     setGenerating(true);
+    setCopyEmpty(false);
     try {
       const sauceList = (Object.keys(sauces) as SauceKey[])
         .filter((k) => sauces[k] && k !== "nada")
@@ -315,14 +370,13 @@ const CriarCarrossel = () => {
           objective,
           secret_sauce: sauceList || undefined,
           format_id: format.id,
+          carousel_id: isRegeneration ? carouselId : undefined,
         },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setSlides(data.copy?.slides ?? []);
-      setCaption(data.copy?.caption ?? "");
-
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      applyGeneratedCopy(data);
     } catch (err: any) {
       console.error(err);
       toast({
@@ -330,10 +384,12 @@ const CriarCarrossel = () => {
         description: err?.message ?? "Tenta de novo em instantes.",
         variant: "destructive",
       });
+      setCopyEmpty(true);
     } finally {
       setGenerating(false);
     }
   };
+
 
   const handleRegenerate = () => setConfirmRegenerate(true);
   const confirmAndRegenerate = async () => {
@@ -585,6 +641,7 @@ const CriarCarrossel = () => {
               caption={caption}
               setCaption={setCaption}
               credits={credits}
+              copyEmpty={copyEmpty}
               onApprove={handleApprove}
               onRegenerate={handleRegenerate}
             />
@@ -1015,6 +1072,7 @@ const Step5 = ({
   caption,
   setCaption,
   credits,
+  copyEmpty,
   onApprove,
   onRegenerate,
 }: {
@@ -1025,6 +1083,7 @@ const Step5 = ({
   caption: string;
   setCaption: (s: string) => void;
   credits: number | null;
+  copyEmpty: boolean;
   onApprove: () => void;
   onRegenerate: () => void;
 }) => {
@@ -1051,8 +1110,17 @@ const Step5 = ({
 
   if (!slides.length) {
     return (
-      <div className="text-center py-12 text-muted-foreground text-sm">
-        Aguardando o CAIC…
+      <div className="text-center py-12 space-y-4">
+        <p className="text-muted-foreground text-sm">
+          {copyEmpty
+            ? "Não consegui gerar os slides — regenerar?"
+            : "Aguardando o CAIC…"}
+        </p>
+        {copyEmpty && (
+          <Button onClick={onRegenerate} variant="outline">
+            <RefreshCw className="h-4 w-4" /> Tentar de novo
+          </Button>
+        )}
       </div>
     );
   }
