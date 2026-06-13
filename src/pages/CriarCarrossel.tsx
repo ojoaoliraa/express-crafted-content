@@ -267,9 +267,50 @@ const CriarCarrossel = () => {
     setStep(4);
   };
 
+  // Mapeia a estrutura crua do edge { index, text, image_keywords }
+  // para a estrutura usada pelo wizard { index, title, body, kind }.
+  const mapSlidesFromCopy = (raw: unknown): { index: number; title: string; body: string; kind: string }[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((s, i, arr) => {
+      const obj = (s ?? {}) as { index?: unknown; text?: unknown; title?: unknown; body?: unknown };
+      const text =
+        typeof obj.text === "string"
+          ? obj.text
+          : typeof obj.title === "string"
+            ? obj.title
+            : "";
+      const parts = text.split(/(?<=[.!?])\s+/);
+      const title = (parts[0] ?? text).trim();
+      const body = parts.slice(1).join(" ").trim() || (typeof obj.body === "string" ? obj.body : "");
+      return {
+        index: typeof obj.index === "number" ? obj.index : i + 1,
+        title,
+        body,
+        kind: i === 0 ? "cover" : i === arr.length - 1 ? "cta" : "content",
+      };
+    });
+  };
+
+  const applyGeneratedCopy = (data: unknown) => {
+    console.log("[CAIC] generate-copy returned:", JSON.stringify(data).slice(0, 500));
+    const payload = (data ?? {}) as {
+      copy?: { caption?: unknown; slides?: unknown };
+      carousel_id?: unknown;
+      credits_remaining?: unknown;
+    };
+    const copy = payload.copy ?? {};
+    const mapped = mapSlidesFromCopy((copy as { slides?: unknown }).slides);
+    setSlides(mapped);
+    setCaption(typeof (copy as { caption?: unknown }).caption === "string" ? (copy as { caption: string }).caption : "");
+    if (typeof payload.carousel_id === "string") setCarouselId(payload.carousel_id);
+    if (typeof payload.credits_remaining === "number") setCredits(payload.credits_remaining);
+    setCopyEmpty(mapped.length === 0);
+  };
+
   const generateCopy = async (isRegeneration = false) => {
     if (!chosenFormat) return;
     setGenerating(true);
+    setCopyEmpty(false);
     try {
       const sauceList = (Object.keys(sauces) as SauceKey[])
         .filter((k) => sauces[k] && k !== "nada")
@@ -282,33 +323,15 @@ const CriarCarrossel = () => {
           objective,
           secret_sauce: sauceList || undefined,
           format_id: chosenFormat.id,
+          carousel_id: isRegeneration ? carouselId : undefined,
         },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
 
-      setSlides(data.copy?.slides ?? []);
-      setCaption(data.copy?.caption ?? "");
+      applyGeneratedCopy(data);
 
-    } catch (err: any) {
-      console.error(err);
-      const msg = err?.message ?? "Não consegui gerar a copy agora.";
-      toast({
-        title: "Deu ruim na geração",
-        description: msg,
-        variant: "destructive",
-      });
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleChooseFormat = async (f: CarouselFormat) => {
-    setChosenFormat(f);
-    setSlides([]);
-    setCaption("");
-    setStep(5);
     // Dispara geração inicial logo em seguida
     setTimeout(() => generateCopyFor(f, false), 0);
   };
