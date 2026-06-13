@@ -134,7 +134,6 @@ const CriarCarrossel = () => {
   // Debug: log toda mudança de step
   useEffect(() => {
     console.log("[CAIC] step changed to:", step, "state:", {
-      idea: finalIdeaRef.current,
       objective,
       format_id: chosenFormat?.id,
       carousel_id: carouselId,
