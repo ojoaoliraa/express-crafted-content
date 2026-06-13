@@ -179,7 +179,18 @@ const CriarCarrossel = () => {
     try {
       const { data, error } = await supabase.functions.invoke("suggest-ideas", {});
       if (error) throw error;
-      const ideas: string[] = data?.ideas ?? [];
+      const rawIdeas: unknown[] = data?.ideas ?? [];
+      const ideas: string[] = rawIdeas
+        .map((i) => {
+          if (typeof i === "string") return i;
+          if (i && typeof i === "object") {
+            const obj = i as { title?: unknown; hook?: unknown };
+            if (typeof obj.title === "string") return obj.title;
+            if (typeof obj.hook === "string") return obj.hook;
+          }
+          return "";
+        })
+        .filter(Boolean);
       setSuggestions(ideas);
     } catch (err) {
       // Fallback local enquanto o endpoint não existe
