@@ -126,8 +126,22 @@ const CriarCarrossel = () => {
     { index: number; title: string; body: string; kind: string }[]
   >([]);
   const [caption, setCaption] = useState("");
+  const [carouselId, setCarouselId] = useState<string | null>(null);
+  const [copyEmpty, setCopyEmpty] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
+
+  // Debug: log toda mudança de step
+  useEffect(() => {
+    console.log("[CAIC] step changed to:", step, "state:", {
+      idea: finalIdeaRef.current,
+      objective,
+      format_id: chosenFormat?.id,
+      carousel_id: carouselId,
+      slides_count: slides.length,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // Step 6 — Imagens
   const [imageMode, setImageMode] = useState<ImageMode>(null);
