@@ -1072,6 +1072,7 @@ const Step5 = ({
   caption,
   setCaption,
   credits,
+  copyEmpty,
   onApprove,
   onRegenerate,
 }: {
@@ -1082,6 +1083,7 @@ const Step5 = ({
   caption: string;
   setCaption: (s: string) => void;
   credits: number | null;
+  copyEmpty: boolean;
   onApprove: () => void;
   onRegenerate: () => void;
 }) => {
@@ -1108,8 +1110,17 @@ const Step5 = ({
 
   if (!slides.length) {
     return (
-      <div className="text-center py-12 text-muted-foreground text-sm">
-        Aguardando o CAIC…
+      <div className="text-center py-12 space-y-4">
+        <p className="text-muted-foreground text-sm">
+          {copyEmpty
+            ? "Não consegui gerar os slides — regenerar?"
+            : "Aguardando o CAIC…"}
+        </p>
+        {copyEmpty && (
+          <Button onClick={onRegenerate} variant="outline">
+            <RefreshCw className="h-4 w-4" /> Tentar de novo
+          </Button>
+        )}
       </div>
     );
   }
