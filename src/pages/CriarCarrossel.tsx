@@ -331,14 +331,33 @@ const CriarCarrossel = () => {
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
 
       applyGeneratedCopy(data);
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Deu ruim na geração",
+        description: err?.message ?? "Não consegui gerar a copy agora.",
+        variant: "destructive",
+      });
+      setCopyEmpty(true);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
-    // Dispara geração inicial logo em seguida
+  const handleChooseFormat = async (f: CarouselFormat) => {
+    setChosenFormat(f);
+    setSlides([]);
+    setCaption("");
+    setCarouselId(null);
+    setCopyEmpty(false);
+    setStep(5);
     setTimeout(() => generateCopyFor(f, false), 0);
   };
 
   // Wrapper que recebe o formato direto (evita race do setState)
   const generateCopyFor = async (format: CarouselFormat, isRegeneration: boolean) => {
     setGenerating(true);
+    setCopyEmpty(false);
     try {
       const sauceList = (Object.keys(sauces) as SauceKey[])
         .filter((k) => sauces[k] && k !== "nada")
@@ -351,14 +370,13 @@ const CriarCarrossel = () => {
           objective,
           secret_sauce: sauceList || undefined,
           format_id: format.id,
+          carousel_id: isRegeneration ? carouselId : undefined,
         },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setSlides(data.copy?.slides ?? []);
-      setCaption(data.copy?.caption ?? "");
-
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      applyGeneratedCopy(data);
     } catch (err: any) {
       console.error(err);
       toast({
@@ -366,10 +384,12 @@ const CriarCarrossel = () => {
         description: err?.message ?? "Tenta de novo em instantes.",
         variant: "destructive",
       });
+      setCopyEmpty(true);
     } finally {
       setGenerating(false);
     }
   };
+
 
   const handleRegenerate = () => setConfirmRegenerate(true);
   const confirmAndRegenerate = async () => {
