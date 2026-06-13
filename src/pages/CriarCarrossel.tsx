@@ -641,6 +641,7 @@ const CriarCarrossel = () => {
               caption={caption}
               setCaption={setCaption}
               credits={credits}
+              copyEmpty={copyEmpty}
               onApprove={handleApprove}
               onRegenerate={handleRegenerate}
             />
