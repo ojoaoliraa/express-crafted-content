@@ -548,6 +548,41 @@ const CriarCarrossel = () => {
     setPickingForSlide(null);
   };
 
+  /**
+   * Distribui imagens stock pelos slides com rotação:
+   * - garante 1 imagem única por slide quando há imagens suficientes
+   * - se houver menos imagens que slides, repete em ciclo (img1, img2, img1, img2...)
+   * - só preenche slots vazios (não sobrescreve escolha manual)
+   */
+  const distributeStockImages = (imgs: StockImage[]) => {
+    if (!imgs.length || !slides.length) return;
+    setSlideImages((prev) => {
+      const next = { ...prev };
+      // pega imagens ainda não usadas primeiro pra evitar repetição
+      const usedUrls = new Set(
+        Object.values(next)
+          .filter((v) => v?.source === "stock" && v.stockMeta?.url)
+          .map((v) => v.stockMeta!.url),
+      );
+      const pool = imgs.filter((i) => !usedUrls.has(i.url));
+      const ring = pool.length > 0 ? pool : imgs;
+      let ringIdx = 0;
+      for (const s of slides) {
+        if (next[s.index]) continue;
+        const img = ring[ringIdx % ring.length];
+        ringIdx += 1;
+        next[s.index] = {
+          url: toProxied(img.url),
+          source: "stock",
+          credit: img.credit,
+          stockMeta: img,
+        };
+      }
+      return next;
+    });
+    setPickingForSlide(null);
+  };
+
   const removeImage = (index: number) => {
     setSlideImages((prev) => {
       const next = { ...prev };
