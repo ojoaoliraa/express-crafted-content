@@ -797,6 +797,7 @@ const CriarCarrossel = () => {
               fetchStock={fetchStock}
               pickingForSlide={pickingForSlide}
               setPickingForSlide={setPickingForSlide}
+              distributeStockImages={distributeStockImages}
             />
           )}
 
