@@ -45,6 +45,19 @@ import JSZip from "jszip";
 
 const TOTAL_STEPS = 8;
 
+const PROXY_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/image-proxy`;
+const toProxied = (url: string) => `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
+
+const KEY = "caic_wizard_v1";
+const loadSaved = (): Record<string, unknown> => {
+  try {
+    const raw = sessionStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
+
 type ImageMode = "upload" | "stock" | "mix" | null;
 interface StockImage {
   id: string;
@@ -123,7 +136,7 @@ const CriarCarrossel = () => {
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [slides, setSlides] = useState<
-    { index: number; title: string; body: string; kind: string }[]
+    { index: number; text: string; kind: string }[]
   >([]);
   const [caption, setCaption] = useState("");
   const [carouselId, setCarouselId] = useState<string | null>(null);
@@ -176,6 +189,80 @@ const CriarCarrossel = () => {
       cancelled = true;
     };
   }, [step, user, generating]);
+
+  // Persistência: seed inicial a partir do sessionStorage
+  useEffect(() => {
+    const s = loadSaved();
+    if (!s || Object.keys(s).length === 0) return;
+    if (typeof s.step === "number") setStep(s.step);
+    if (s.ideaMode !== undefined) setIdeaMode(s.ideaMode as IdeaMode);
+    if (typeof s.ideaText === "string") setIdeaText(s.ideaText);
+    if (typeof s.objective === "string") setObjective(s.objective);
+    if (s.sauces) setSauces(s.sauces as Record<SauceKey, boolean>);
+    if (s.sauceDetails) setSauceDetails(s.sauceDetails as Record<string, string>);
+    if (s.chosenFormat) setChosenFormat(s.chosenFormat as CarouselFormat);
+    if (Array.isArray(s.slides)) setSlides(s.slides as { index: number; text: string; kind: string }[]);
+    if (typeof s.caption === "string") setCaption(s.caption);
+    if (typeof s.carouselId === "string") setCarouselId(s.carouselId);
+    if (s.imageMode !== undefined) setImageMode(s.imageMode as ImageMode);
+    if (s.slideImages) setSlideImages(s.slideImages as Record<number, SlideImage>);
+    if (typeof s.credits === "number") setCredits(s.credits);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persistência: salva mudanças relevantes (sem blobs/uploads/previews)
+  useEffect(() => {
+    try {
+      const serializableImages: Record<number, SlideImage> = {};
+      for (const [k, v] of Object.entries(slideImages)) {
+        if (v.source === "stock") serializableImages[Number(k)] = v;
+      }
+      sessionStorage.setItem(
+        KEY,
+        JSON.stringify({
+          step,
+          ideaMode,
+          ideaText,
+          objective,
+          sauces,
+          sauceDetails,
+          chosenFormat,
+          slides,
+          caption,
+          carouselId,
+          imageMode,
+          slideImages: serializableImages,
+          credits,
+        }),
+      );
+    } catch {
+      /* ignore quota errors */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, ideaMode, ideaText, objective, sauces, sauceDetails, chosenFormat, slides, caption, carouselId, imageMode, slideImages, credits]);
+
+  const handleReset = () => {
+    try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
+    setStep(1);
+    setIdeaMode(null);
+    setIdeaText("");
+    setSelectedSuggestion(null);
+    setSuggestions([]);
+    setObjective("");
+    setSauces({ depoimento: false, virada_crenca: false, dados: false, comparacao: false, produto: false, nada: false });
+    setSauceDetails({});
+    setChosenFormat(null);
+    setMatches([]);
+    setSlides([]);
+    setCaption("");
+    setCarouselId(null);
+    setCopyEmpty(false);
+    setImageMode(null);
+    setSlideImages({});
+    setStockImages([]);
+    setRenderedPreviews([]);
+    setRenderedBlobs([]);
+  };
 
 
   const progress = (step / TOTAL_STEPS) * 100;
@@ -268,8 +355,8 @@ const CriarCarrossel = () => {
   };
 
   // Mapeia a estrutura crua do edge { index, text, image_keywords }
-  // para a estrutura usada pelo wizard { index, title, body, kind }.
-  const mapSlidesFromCopy = (raw: unknown): { index: number; title: string; body: string; kind: string }[] => {
+  // para { index, text, kind } usada pelo wizard.
+  const mapSlidesFromCopy = (raw: unknown): { index: number; text: string; kind: string }[] => {
     if (!Array.isArray(raw)) return [];
     return raw.map((s, i, arr) => {
       const obj = (s ?? {}) as { index?: unknown; text?: unknown; title?: unknown; body?: unknown };
@@ -278,14 +365,12 @@ const CriarCarrossel = () => {
           ? obj.text
           : typeof obj.title === "string"
             ? obj.title
-            : "";
-      const parts = text.split(/(?<=[.!?])\s+/);
-      const title = (parts[0] ?? text).trim();
-      const body = parts.slice(1).join(" ").trim() || (typeof obj.body === "string" ? obj.body : "");
+            : typeof obj.body === "string"
+              ? obj.body
+              : "";
       return {
         index: typeof obj.index === "number" ? obj.index : i + 1,
-        title,
-        body,
+        text,
         kind: i === 0 ? "cover" : i === arr.length - 1 ? "cta" : "content",
       };
     });
@@ -406,7 +491,7 @@ const CriarCarrossel = () => {
   // ----------- Etapa 6: imagens -----------
 
   const buildKeywordsFromCopy = () => {
-    const text = [finalIdea, ...slides.map((s) => `${s.title} ${s.body}`)].join(" ");
+    const text = [finalIdea, ...slides.map((s) => s.text)].join(" ");
     // pega palavras-chave grosseiras
     const stop = new Set([
       "de","da","do","das","dos","e","o","a","os","as","em","um","uma","no","na","pra","para","por","com","que","se","sobre","mais","seu","sua","ser","tem","tô","você","voce","caic",
@@ -458,7 +543,7 @@ const CriarCarrossel = () => {
   const assignStock = (index: number, img: StockImage) => {
     setSlideImages((prev) => ({
       ...prev,
-      [index]: { url: img.url, source: "stock", credit: img.credit, stockMeta: img },
+      [index]: { url: toProxied(img.url), source: "stock", credit: img.credit, stockMeta: img },
     }));
     setPickingForSlide(null);
   };
@@ -481,8 +566,17 @@ const CriarCarrossel = () => {
     setRenderedPreviews([]);
     setRenderedBlobs([]);
     try {
-      // espera o DOM dos render targets montar
-      await new Promise((r) => setTimeout(r, 200));
+      // espera todas as imagens decodificarem antes de renderizar
+      const imgs = Array.from(
+        document.querySelectorAll<HTMLImageElement>('[data-render-target="true"] img'),
+      );
+      await Promise.all(
+        imgs.map((img) =>
+          img.complete && img.naturalWidth > 0
+            ? Promise.resolve()
+            : img.decode().catch(() => {}),
+        ),
+      );
       const previews: { index: number; dataUrl: string }[] = [];
       const blobs: { index: number; blob: Blob }[] = [];
       for (const s of slides) {
@@ -490,7 +584,7 @@ const CriarCarrossel = () => {
         if (!node) continue;
         const dataUrl = await toPng(node, {
           pixelRatio: 1,
-          cacheBust: true,
+          cacheBust: false,
           backgroundColor: "#0a0a0a",
         });
         previews.push({ index: s.index, dataUrl });
@@ -689,10 +783,21 @@ const CriarCarrossel = () => {
         {/* Footer nav */}
         <div className="mt-10 flex items-center justify-between gap-3">
           {step !== 8 && (
-            <Button variant="ghost" onClick={handleBack} disabled={generating || rendering}>
-              <ArrowLeft className="h-4 w-4" />
-              {step === 1 ? "Cancelar" : "Voltar"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleBack} disabled={generating || rendering}>
+                <ArrowLeft className="h-4 w-4" />
+                {step === 1 ? "Cancelar" : "Voltar"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                disabled={generating || rendering}
+                className="text-xs text-muted-foreground"
+              >
+                Reset
+              </Button>
+            </div>
           )}
           {step === 8 && <div />}
 
@@ -723,17 +828,18 @@ const CriarCarrossel = () => {
       <div className="fixed -left-[10000px] top-0 pointer-events-none" aria-hidden>
         {step >= 6 &&
           slides.map((s) => (
-            <SlideCard
-              key={`render-${s.index}`}
-              ref={(el) => (renderRefs.current[s.index] = el)}
-              index={s.index}
-              total={slides.length}
-              title={s.title}
-              body={s.body}
-              kind={s.kind}
-              imageUrl={slideImages[s.index]?.url}
-              variant="render"
-            />
+            <div key={`render-${s.index}`} data-render-target="true">
+              <SlideCard
+                ref={(el) => (renderRefs.current[s.index] = el)}
+                index={s.index}
+                total={slides.length}
+                title={s.text}
+                body=""
+                kind={s.kind}
+                imageUrl={slideImages[s.index]?.url}
+                variant="render"
+              />
+            </div>
           ))}
       </div>
 
@@ -1059,8 +1165,7 @@ const Step4 = ({
 
 interface SlideRow {
   index: number;
-  title: string;
-  body: string;
+  text: string;
   kind: string;
 }
 
@@ -1158,15 +1263,10 @@ const Step5 = ({
                 {s.kind === "cover" ? "capa" : s.kind === "cta" ? "CTA" : "conteúdo"}
               </span>
             </div>
-            <input
-              value={s.title}
-              onChange={(e) => updateSlide(s.index, { title: e.target.value })}
-              className="w-full bg-transparent font-display text-lg leading-tight focus:outline-none focus:ring-0 border-0 p-0"
-            />
             <Textarea
-              value={s.body}
-              onChange={(e) => updateSlide(s.index, { body: e.target.value })}
-              className="min-h-20 text-sm border-dashed"
+              value={s.text}
+              onChange={(e) => updateSlide(s.index, { text: e.target.value })}
+              className="min-h-24 text-base font-display"
             />
           </div>
         ))}
@@ -1197,7 +1297,7 @@ const Step5 = ({
 /* ---------------- Step 6 — Imagens ---------------- */
 
 interface Step6Props {
-  slides: { index: number; title: string; body: string; kind: string }[];
+  slides: { index: number; text: string; kind: string }[];
   imageMode: ImageMode;
   setImageMode: (m: ImageMode) => void;
   slideImages: Record<number, SlideImage>;
