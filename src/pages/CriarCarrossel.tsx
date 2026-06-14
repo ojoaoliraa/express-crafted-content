@@ -516,10 +516,15 @@ const CriarCarrossel = () => {
     setLoadingStock(true);
     try {
       const { data, error } = await supabase.functions.invoke("search-stock-images", {
-        body: { query },
+        body: { query, keywords: [query], slide_count: slides.length || 8 },
       });
       if (error) throw error;
-      setStockImages(data?.images ?? []);
+      const imgs: StockImage[] = data?.images ?? [];
+      setStockImages(imgs);
+      // Se modo stock e nenhum slide tem imagem ainda, distribui automaticamente.
+      if (imageMode === "stock" && imgs.length && Object.keys(slideImages).length === 0) {
+        distributeStockImages(imgs);
+      }
     } catch (err) {
       console.error(err);
       toast({
@@ -545,6 +550,41 @@ const CriarCarrossel = () => {
       ...prev,
       [index]: { url: toProxied(img.url), source: "stock", credit: img.credit, stockMeta: img },
     }));
+    setPickingForSlide(null);
+  };
+
+  /**
+   * Distribui imagens stock pelos slides com rotação:
+   * - garante 1 imagem única por slide quando há imagens suficientes
+   * - se houver menos imagens que slides, repete em ciclo (img1, img2, img1, img2...)
+   * - só preenche slots vazios (não sobrescreve escolha manual)
+   */
+  const distributeStockImages = (imgs: StockImage[]) => {
+    if (!imgs.length || !slides.length) return;
+    setSlideImages((prev) => {
+      const next = { ...prev };
+      // pega imagens ainda não usadas primeiro pra evitar repetição
+      const usedUrls = new Set(
+        Object.values(next)
+          .filter((v) => v?.source === "stock" && v.stockMeta?.url)
+          .map((v) => v.stockMeta!.url),
+      );
+      const pool = imgs.filter((i) => !usedUrls.has(i.url));
+      const ring = pool.length > 0 ? pool : imgs;
+      let ringIdx = 0;
+      for (const s of slides) {
+        if (next[s.index]) continue;
+        const img = ring[ringIdx % ring.length];
+        ringIdx += 1;
+        next[s.index] = {
+          url: toProxied(img.url),
+          source: "stock",
+          credit: img.credit,
+          stockMeta: img,
+        };
+      }
+      return next;
+    });
     setPickingForSlide(null);
   };
 
@@ -757,6 +797,7 @@ const CriarCarrossel = () => {
               fetchStock={fetchStock}
               pickingForSlide={pickingForSlide}
               setPickingForSlide={setPickingForSlide}
+              distributeStockImages={distributeStockImages}
             />
           )}
 
@@ -833,8 +874,7 @@ const CriarCarrossel = () => {
                 ref={(el) => (renderRefs.current[s.index] = el)}
                 index={s.index}
                 total={slides.length}
-                title={s.text}
-                body=""
+                text={s.text}
                 kind={s.kind}
                 imageUrl={slideImages[s.index]?.url}
                 variant="render"
@@ -1311,6 +1351,7 @@ interface Step6Props {
   fetchStock: (override?: string) => void;
   pickingForSlide: number | null;
   setPickingForSlide: (n: number | null) => void;
+  distributeStockImages: (imgs: StockImage[]) => void;
 }
 
 const Step6 = ({
@@ -1328,6 +1369,7 @@ const Step6 = ({
   fetchStock,
   pickingForSlide,
   setPickingForSlide,
+  distributeStockImages,
 }: Step6Props) => {
   return (
     <div className="space-y-6">
@@ -1448,6 +1490,15 @@ const Step6 = ({
                 />
                 <Button size="sm" variant="outline" onClick={() => fetchStock(stockQuery)}>
                   Buscar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => distributeStockImages(stockImages)}
+                  disabled={!stockImages.length}
+                  title="Atribui 1 imagem única por slide (rotaciona se faltar)"
+                >
+                  Distribuir
                 </Button>
               </div>
               {pickingForSlide !== null && (
