@@ -1351,6 +1351,7 @@ interface Step6Props {
   fetchStock: (override?: string) => void;
   pickingForSlide: number | null;
   setPickingForSlide: (n: number | null) => void;
+  distributeStockImages: (imgs: StockImage[]) => void;
 }
 
 const Step6 = ({
@@ -1368,6 +1369,7 @@ const Step6 = ({
   fetchStock,
   pickingForSlide,
   setPickingForSlide,
+  distributeStockImages,
 }: Step6Props) => {
   return (
     <div className="space-y-6">
