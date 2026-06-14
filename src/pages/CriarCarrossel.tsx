@@ -516,10 +516,15 @@ const CriarCarrossel = () => {
     setLoadingStock(true);
     try {
       const { data, error } = await supabase.functions.invoke("search-stock-images", {
-        body: { query },
+        body: { query, keywords: [query], slide_count: slides.length || 8 },
       });
       if (error) throw error;
-      setStockImages(data?.images ?? []);
+      const imgs: StockImage[] = data?.images ?? [];
+      setStockImages(imgs);
+      // Se modo stock e nenhum slide tem imagem ainda, distribui automaticamente.
+      if (imageMode === "stock" && imgs.length && Object.keys(slideImages).length === 0) {
+        distributeStockImages(imgs);
+      }
     } catch (err) {
       console.error(err);
       toast({
