@@ -1491,6 +1491,15 @@ const Step6 = ({
                 <Button size="sm" variant="outline" onClick={() => fetchStock(stockQuery)}>
                   Buscar
                 </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => distributeStockImages(stockImages)}
+                  disabled={!stockImages.length}
+                  title="Atribui 1 imagem única por slide (rotaciona se faltar)"
+                >
+                  Distribuir
+                </Button>
               </div>
               {pickingForSlide !== null && (
                 <p className="text-xs text-primary">
