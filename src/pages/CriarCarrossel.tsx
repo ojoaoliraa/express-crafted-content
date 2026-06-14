@@ -833,8 +833,7 @@ const CriarCarrossel = () => {
                 ref={(el) => (renderRefs.current[s.index] = el)}
                 index={s.index}
                 total={slides.length}
-                title={s.text}
-                body=""
+                text={s.text}
                 kind={s.kind}
                 imageUrl={slideImages[s.index]?.url}
                 variant="render"
